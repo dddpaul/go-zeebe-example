@@ -3,9 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/camunda/zeebe/clients/go/v8/pkg/entities"
-	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
+	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/google/uuid"
 	"io"
 	"log"
@@ -53,41 +52,21 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	log.Printf("Process instance ID = %d, uuid = %s", response.ProcessInstanceKey, id.String())
 
 	// Listen for the job worker result or the timeout
-	resultChan := make(chan string, 1)
-	go func() {
-		jobWorker := zbClient.NewJobWorker().
-			JobType("final-task").
-			Handler(func(jobClient worker.JobClient, job entities.Job) {
-				jobKey := job.GetKey()
-				// Assuming that the job worker will complete the task with a variable "result"
-				variables := map[string]interface{}{
-					"result": "Yes",
-				}
-				request, err := jobClient.NewCompleteJobCommand().JobKey(jobKey).VariablesFromMap(variables)
-				if err != nil {
-					panic(err)
-				}
-				_, err = request.Send(ctx)
-				if err != nil {
-					panic(err)
-				}
-				resultChan <- "Done"
-			}).Open()
-		defer jobWorker.Close()
-		jobWorker.AwaitClose()
-	}()
+	ch := make(chan bool, 1)
+	cache.Add(id.String(), ch)
 
 	select {
-	case result := <-resultChan:
+	case <-ch:
 		// If we got the result within the timeout, send it back
 		err := json.NewEncoder(w).Encode(
 			StartProcessResponse{
 				ProcessInstanceKey: response.GetProcessInstanceKey(),
-				Result:             result,
+				Result:             "Success",
 			})
 		if err != nil {
 			return
 		}
+		cache.Del(id.String())
 	case <-ctx.Done():
 		// If the context is done, it means we hit the timeout
 		http.Error(w, "timeout waiting for the process to complete", http.StatusRequestTimeout)
@@ -126,12 +105,16 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		VariablesFromMap(variables)
 
 	if err != nil {
-		_, err := command.Send(ctx)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+
+	response, err := command.Send(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Message sent %s", response.String())
 
 	// Respond with a success message
 	w.WriteHeader(http.StatusNoContent)
