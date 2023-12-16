@@ -28,16 +28,12 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	id := ctx.Value(logger.TRACE_ID).(string)
 
 	// Start the process instance
-	command, err := zbClient.NewCreateInstanceCommand().
+	command, _ := zbClient.NewCreateInstanceCommand().
 		BPMNProcessId("diagram_1").
 		LatestVersion().
 		VariablesFromMap(map[string]interface{}{
 			"uuid": id,
 		})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	response, err := command.Send(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,16 +94,12 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	logger.Log(ctx, nil).WithField("uuid", callbackReq.Uuid).WithField("message", callbackReq.Message).Debugf("callback request")
 
 	// Publish a message to the process instance
-	command, err := zbClient.NewPublishMessageCommand().
+	command, _ := zbClient.NewPublishMessageCommand().
 		MessageName("callback").
 		CorrelationKey(callbackReq.Uuid).
 		VariablesFromMap(map[string]interface{}{
 			"message": callbackReq.Message,
 		})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	response, err := command.Send(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
