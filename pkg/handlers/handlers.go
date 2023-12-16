@@ -6,6 +6,7 @@ import (
 	"github.com/camunda-cloud/zeebe/clients/go/pkg/entities"
 	"github.com/camunda-cloud/zeebe/clients/go/pkg/worker"
 	"github.com/camunda-cloud/zeebe/clients/go/pkg/zbc"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
@@ -18,26 +19,38 @@ type StartProcessResponse struct {
 }
 
 type CallbackRequest struct {
-	ProcessInstanceKey int64                  `json:"processInstanceKey"`
-	MessageName        string                 `json:"messageName"`
-	CorrelationKey     string                 `json:"correlationKey"`
-	Variables          map[string]interface{} `json:"variables"`
+	Uuid    string `json:"uuid"`
+	Message string `json:"message"`
 }
 
 func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
+	// Generate UUID for correlation key
+	id, err := uuid.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+
 	// Start the process instance
-	response, err := zbClient.NewCreateInstanceCommand().
+	variables := map[string]interface{}{
+		"uuid": id.String(),
+	}
+	command, err := zbClient.NewCreateInstanceCommand().
 		BPMNProcessId("diagram_1").
 		LatestVersion().
-		Send(ctx)
+		VariablesFromMap(variables)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Process instance ID = %d", response.ProcessInstanceKey)
+	response, err := command.Send(ctx)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Process instance ID = %d, uuid = %s", response.ProcessInstanceKey, id.String())
 
 	// Listen for the job worker result or the timeout
 	resultChan := make(chan string, 1)
@@ -103,10 +116,13 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	variables := map[string]interface{}{
+		"message": callbackReq.Message,
+	}
 	command, err := zbClient.NewPublishMessageCommand().
-		MessageName(callbackReq.MessageName).
-		CorrelationKey(callbackReq.CorrelationKey).
-		VariablesFromMap(callbackReq.Variables)
+		MessageName("callback").
+		CorrelationKey(callbackReq.Uuid).
+		VariablesFromMap(variables)
 
 	if err != nil {
 		_, err := command.Send(ctx)
