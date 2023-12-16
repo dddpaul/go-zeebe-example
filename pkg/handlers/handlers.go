@@ -3,9 +3,9 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"github.com/camunda-cloud/zeebe/clients/go/pkg/entities"
-	"github.com/camunda-cloud/zeebe/clients/go/pkg/worker"
-	"github.com/camunda-cloud/zeebe/clients/go/pkg/zbc"
+	"github.com/camunda/zeebe/clients/go/v8/pkg/entities"
+	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
+	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/google/uuid"
 	"io"
 	"log"
@@ -56,7 +56,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	resultChan := make(chan string, 1)
 	go func() {
 		jobWorker := zbClient.NewJobWorker().
-			JobType("end-task").
+			JobType("final-task").
 			Handler(func(jobClient worker.JobClient, job entities.Job) {
 				jobKey := job.GetKey()
 				// Assuming that the job worker will complete the task with a variable "result"
@@ -111,6 +111,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
 		return
 	}
+	log.Printf("Parsed callback request: %v", callbackReq)
 
 	// Publish a message to the process instance
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -131,6 +132,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	// Respond with a success message
 	w.WriteHeader(http.StatusNoContent)
 }

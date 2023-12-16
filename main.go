@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/camunda-cloud/zeebe/clients/go/pkg/zbc"
+	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/handlers"
 	"github.com/dddpaul/go-zeebe-example/pkg/workers"
 	"github.com/go-chi/chi/v5"
@@ -25,12 +25,13 @@ func NewZeebeClient() zbc.Client {
 
 func DeployProcessDefinition(client zbc.Client) {
 	ctx := context.Background()
-	_, err := client.NewDeployProcessCommand().
+	response, err := client.NewDeployResourceCommand().
 		AddResourceFile("diagram_1.bpmn").
 		Send(ctx)
 	if err != nil {
 		panic(err)
 	}
+	log.Printf("Process definition deployed %s", response.String())
 }
 
 func main() {
