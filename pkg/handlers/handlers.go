@@ -6,6 +6,7 @@ import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
+	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -25,23 +26,23 @@ type CallbackRequest struct {
 func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
-	id := ctx.Value(logger.TRACE_ID).(string)
+	id := ctx.Value(logger.APP_ID).(string)
 
 	// Start the process instance
 	command, _ := zbClient.NewCreateInstanceCommand().
 		BPMNProcessId("diagram_1").
 		LatestVersion().
 		VariablesFromMap(map[string]interface{}{
-			"uuid": id,
+			zeebe.APP_ID: id,
 		})
-	response, err := command.Send(ctx)
+	resp, err := command.Send(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		"bpmn-id":     response.BpmnProcessId,
-		"process-key": response.ProcessInstanceKey,
+		logger.BMPN_ID:     resp.BpmnProcessId,
+		logger.PROCESS_KEY: resp.ProcessInstanceKey,
 	}).Infof("new process instance")
 
 	// Listen for the job worker result or the timeout
@@ -53,7 +54,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		// If we got the result within the timeout, send it back
 		err := json.NewEncoder(w).Encode(
 			StartProcessResponse{
-				ProcessInstanceKey: response.GetProcessInstanceKey(),
+				ProcessInstanceKey: resp.GetProcessInstanceKey(),
 				Result:             "Success",
 			})
 		if err != nil {
@@ -91,7 +92,10 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
 		return
 	}
-	logger.Log(ctx, nil).WithField("uuid", callbackReq.Uuid).WithField("message", callbackReq.Message).Debugf("callback request")
+	logger.Log(ctx, nil).WithFields(log.Fields{
+		logger.APP_ID: callbackReq.Uuid,
+		"message":     callbackReq.Message,
+	}).Debugf("callback request")
 
 	// Publish a message to the process instance
 	command, _ := zbClient.NewPublishMessageCommand().
@@ -106,7 +110,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		"uuid":        callbackReq.Uuid,
+		logger.APP_ID: callbackReq.Uuid,
 		"message":     callbackReq.Message,
 		"message-key": response.GetKey(),
 	}).Infof("callback message sent")

@@ -10,14 +10,19 @@ import (
 	"time"
 )
 
-const TRACE_ID = "trace_id"
+const APP_ID = "app-id"
+const BMPN_ID = "bpmn-id"
+const PROCESS_KEY = "process-key"
+const JOB_TYPE = "job-type"
+const INPUTS = "inputs"
+const OUTPUTS = "outputs"
 
 type LoggingMiddleware struct {
 	handler http.Handler
 }
 
 func (l *LoggingMiddleware) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	withTraceID(req)
+	withAppID(req)
 	LogRequest(req)
 	l.handler.ServeHTTP(w, req)
 }
@@ -26,10 +31,13 @@ func NewMiddleware(h http.Handler) http.Handler {
 	return &LoggingMiddleware{handler: h}
 }
 
-// Inject trace_id field into request's context and modify original request
-// TODO: Use UUID from callback request and do not generate new UUID
-func withTraceID(req *http.Request) {
-	ctx := context.WithValue(req.Context(), TRACE_ID, uuid.NewString())
+// Inject app_id field into request's context and modify original request
+func withAppID(req *http.Request) {
+	appId := req.Header.Get("X-APP-ID")
+	if len(appId) == 0 {
+		appId = uuid.NewString()
+	}
+	ctx := context.WithValue(req.Context(), APP_ID, appId)
 	r := req.WithContext(ctx)
 	*req = *r
 }
@@ -52,8 +60,11 @@ func Log(ctx context.Context, err error) *log.Entry {
 	if err != nil {
 		entry = entry.WithField("error", err)
 	}
-	if traceID := ctx.Value(TRACE_ID); traceID != nil {
-		entry = entry.WithField(TRACE_ID, traceID)
+	if appID := ctx.Value(APP_ID); appID != nil {
+		entry = entry.WithField(APP_ID, appID)
+	}
+	if jobType := ctx.Value(JOB_TYPE); jobType != nil {
+		entry = entry.WithField(JOB_TYPE, jobType)
 	}
 	return entry
 }

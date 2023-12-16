@@ -50,7 +50,7 @@
   </bpmn:process>
   <bpmn:message id="Message_2n7q5dq" name="callback">
     <bpmn:extensionElements>
-      <zeebe:subscription correlationKey="=uuid" />
+      <zeebe:subscription correlationKey="=app_id" />
     </bpmn:extensionElements>
   </bpmn:message>
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">

@@ -6,6 +6,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const APP_ID = "app_id"
+
 func NewClient(zeebeBrokerAddr string) zbc.Client {
 	zbClient, err := zbc.NewClient(&zbc.ClientConfig{
 		GatewayAddress:         zeebeBrokerAddr,

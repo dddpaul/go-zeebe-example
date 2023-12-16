@@ -6,7 +6,7 @@ import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/cache"
-	"log"
+	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"time"
 )
 
@@ -28,59 +28,43 @@ func StartJobWorkers(client zbc.Client) {
 }
 
 func handleJob(client worker.JobClient, job entities.Job) {
-	log.Printf("Handling job: %s, input: %s", job.Type, job.Variables)
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("job activated")
 
-	variables := map[string]interface{}{
+	result := map[string]interface{}{
 		"result": "Yes",
 	}
-	request, err := client.NewCompleteJobCommand().
-		JobKey(job.Key).
-		VariablesFromMap(variables)
-	if err != nil {
-		panic(err)
+
+	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
+	if _, err := req.Send(ctx); err != nil {
+		logger.Log(ctx, err).Errorf("error")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	_, err = request.Send(ctx)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("Successfully completed job: %s, result: %v", job.Type, variables)
+	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
 }
 
 func handleFinalJob(client worker.JobClient, job entities.Job) {
-	log.Printf("Handling job: %s, input: %s", job.Type, job.Variables)
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("job activated")
 
-	variables, err := job.GetVariablesAsMap()
-	if err != nil {
-		panic(err)
-	}
-	uuid := variables["uuid"].(string)
-
-	variables = map[string]interface{}{
+	result := map[string]interface{}{
 		"result": "Yes",
 	}
-	request, err := client.NewCompleteJobCommand().
-		JobKey(job.Key).
-		VariablesFromMap(variables)
-	if err != nil {
-		panic(err)
+
+	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
+	if _, err := req.Send(ctx); err != nil {
+		logger.Log(ctx, err).Errorf("error")
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	_, err = request.Send(ctx)
-	if err != nil {
-		panic(err)
-	}
-
-	log.Printf("Successfully completed job: %s, result: %v", job.Type, variables)
+	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
 
 	// Send complete signal for waiting /sync method
-	ch := cache.Get(uuid)
+	ch := cache.Get(ctx.Value(logger.APP_ID).(string))
 	ch <- true
+}
+
+func newContext(job entities.Job) context.Context {
+	vars, _ := job.GetVariablesAsMap()
+	ctx := context.WithValue(context.Background(), logger.APP_ID, vars[APP_ID].(string))
+	return context.WithValue(ctx, logger.JOB_TYPE, job.Type)
 }
