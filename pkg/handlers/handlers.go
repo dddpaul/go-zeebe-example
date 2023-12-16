@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/cache"
-	"github.com/google/uuid"
+	"github.com/dddpaul/go-zeebe-example/pkg/logger"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -25,21 +25,15 @@ type CallbackRequest struct {
 func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
-
-	// Generate UUID for correlation key
-	id, err := uuid.NewUUID()
-	if err != nil {
-		panic(err)
-	}
+	id := ctx.Value(logger.TRACE_ID).(string)
 
 	// Start the process instance
-	variables := map[string]interface{}{
-		"uuid": id.String(),
-	}
 	command, err := zbClient.NewCreateInstanceCommand().
 		BPMNProcessId("diagram_1").
 		LatestVersion().
-		VariablesFromMap(variables)
+		VariablesFromMap(map[string]interface{}{
+			"uuid": id,
+		})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -49,11 +43,14 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Process instance ID = %d, uuid = %s", response.ProcessInstanceKey, id.String())
+	logger.Log(ctx, nil).WithFields(log.Fields{
+		"bpmn-id":     response.BpmnProcessId,
+		"process-key": response.ProcessInstanceKey,
+	}).Infof("new process instance")
 
 	// Listen for the job worker result or the timeout
 	ch := make(chan bool, 1)
-	cache.Add(id.String(), ch)
+	cache.Add(id, ch)
 
 	select {
 	case <-ch:
@@ -66,7 +63,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		cache.Del(id.String())
+		cache.Del(id)
 	case <-ctx.Done():
 		// If the context is done, it means we hit the timeout
 		http.Error(w, "timeout waiting for the process to complete", http.StatusRequestTimeout)
@@ -74,6 +71,8 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 }
 
 func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
 	var callbackReq CallbackRequest
 
 	// Read the request body
@@ -82,7 +81,13 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func(b io.ReadCloser) {
+		err := b.Close()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}(r.Body)
 
 	// Unmarshal the JSON request body into the CallbackRequest struct
 	err = json.Unmarshal(body, &callbackReq)
@@ -90,31 +95,29 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Parsed callback request: %v", callbackReq)
+	logger.Log(ctx, nil).WithField("uuid", callbackReq.Uuid).WithField("message", callbackReq.Message).Debugf("callback request")
 
 	// Publish a message to the process instance
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	variables := map[string]interface{}{
-		"message": callbackReq.Message,
-	}
 	command, err := zbClient.NewPublishMessageCommand().
 		MessageName("callback").
 		CorrelationKey(callbackReq.Uuid).
-		VariablesFromMap(variables)
-
+		VariablesFromMap(map[string]interface{}{
+			"message": callbackReq.Message,
+		})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	response, err := command.Send(ctx)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Message sent %s", response.String())
+	logger.Log(ctx, nil).WithFields(log.Fields{
+		"uuid":        callbackReq.Uuid,
+		"message":     callbackReq.Message,
+		"message-key": response.GetKey(),
+	}).Infof("callback message sent")
 
 	// Respond with a success message
 	w.WriteHeader(http.StatusNoContent)
