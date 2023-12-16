@@ -1,4 +1,4 @@
-module main
+module github.com/dddpaul/go-zeebe-example
 
 go 1.21.4
 
