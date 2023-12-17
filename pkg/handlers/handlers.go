@@ -36,6 +36,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		})
 	resp, err := command.Send(ctx)
 	if err != nil {
+		logger.Log(ctx, err).WithField("zeebe-response", resp).Errorf("error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -75,6 +76,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	// Read the request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		logger.Log(ctx, err).Errorf("error")
 		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
@@ -89,6 +91,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	// Unmarshal the JSON request body into the CallbackRequest struct
 	err = json.Unmarshal(body, &callbackReq)
 	if err != nil {
+		logger.Log(ctx, err).WithField("body", body).Errorf("error")
 		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
 		return
 	}
@@ -103,14 +106,15 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		VariablesFromMap(map[string]interface{}{
 			"message": callbackReq.Message,
 		})
-	response, err := command.Send(ctx)
+	resp, err := command.Send(ctx)
 	if err != nil {
+		logger.Log(ctx, err).WithField("zeebe-response", resp).Errorf("error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
 		"message":     callbackReq.Message,
-		"message-key": response.GetKey(),
+		"message-key": resp.GetKey(),
 	}).Infof("callback message sent")
 
 	// Respond with a success message

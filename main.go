@@ -47,8 +47,6 @@ func main() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	r := chi.NewRouter()
-
 	zbClient := zeebe.NewClient(zeebeBrokerAddr)
 	defer func(z zbc.Client) {
 		err := z.Close()
@@ -61,10 +59,10 @@ func main() {
 	zeebe.DeployProcessDefinition(zbClient)
 	go zeebe.StartJobWorkers(zbClient)
 
+	r := chi.NewRouter()
 	r.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Sync(zbClient, w, r)
 	})
-
 	r.Post("/callback", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Callback(zbClient, w, r)
 	})
