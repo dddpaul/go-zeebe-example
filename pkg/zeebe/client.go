@@ -7,6 +7,7 @@ import (
 )
 
 const APP_ID = "app_id"
+const MESSAGE = "message"
 
 func NewClient(zeebeBrokerAddr string) zbc.Client {
 	zbClient, err := zbc.NewClient(&zbc.ClientConfig{

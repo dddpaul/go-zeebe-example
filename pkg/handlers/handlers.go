@@ -36,7 +36,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		})
 	resp, err := command.Send(ctx)
 	if err != nil {
-		logger.Log(ctx, err).WithField("zeebe-response", resp).Errorf("error")
+		logger.Log(ctx, err).WithField(logger.RESPONSE, resp).Errorf("error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -91,12 +91,12 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	// Unmarshal the JSON request body into the CallbackRequest struct
 	err = json.Unmarshal(body, &callbackReq)
 	if err != nil {
-		logger.Log(ctx, err).WithField("body", body).Errorf("error")
+		logger.Log(ctx, err).WithField(logger.BODY, body).Errorf("error")
 		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		"message": callbackReq.Message,
+		logger.MESSAGE: callbackReq.Message,
 	}).Debugf("callback request")
 
 	// Publish a message to the process instance
@@ -104,17 +104,17 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		MessageName("callback").
 		CorrelationKey(id).
 		VariablesFromMap(map[string]interface{}{
-			"message": callbackReq.Message,
+			zeebe.MESSAGE: callbackReq.Message,
 		})
 	resp, err := command.Send(ctx)
 	if err != nil {
-		logger.Log(ctx, err).WithField("zeebe-response", resp).Errorf("error")
+		logger.Log(ctx, err).WithField(logger.RESPONSE, resp).Errorf("error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		"message":     callbackReq.Message,
-		"message-key": resp.GetKey(),
+		logger.MESSAGE: callbackReq.Message,
+		"message-key":  resp.GetKey(),
 	}).Infof("callback message sent")
 
 	// Respond with a success message

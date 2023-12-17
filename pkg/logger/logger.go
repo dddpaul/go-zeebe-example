@@ -10,12 +10,15 @@ import (
 	"time"
 )
 
-const APP_ID = "app-id"
-const BMPN_ID = "bpmn-id"
-const PROCESS_KEY = "process-key"
-const JOB_TYPE = "job-type"
-const INPUTS = "inputs"
-const OUTPUTS = "outputs"
+const APP_ID = "zeebe-app-id"
+const BMPN_ID = "zeebe-bpmn-id"
+const PROCESS_KEY = "zeebe-process-key"
+const JOB_TYPE = "zeebe-job-type"
+const INPUTS = "zeebe-worker-inputs"
+const OUTPUTS = "zeebe-worker-outputs"
+const RESPONSE = "zeebe-response"
+const BODY = "body"
+const MESSAGE = "message"
 
 type LoggingMiddleware struct {
 	handler http.Handler
