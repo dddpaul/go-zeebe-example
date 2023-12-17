@@ -58,7 +58,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		respondWithError(ctx, w, err, http.StatusBadRequest)
 		return
 	}
-	defer closeBody(r.Body)
+	defer closeBody(ctx, r.Body)
 
 	if err := publishCallbackMessage(ctx, zbClient, id, callbackReq.Message); err != nil {
 		respondWithError(ctx, w, err, http.StatusInternalServerError)
@@ -78,9 +78,9 @@ func respondWithJSON(w http.ResponseWriter, payload interface{}) {
 	json.NewEncoder(w).Encode(payload)
 }
 
-func closeBody(body io.ReadCloser) {
+func closeBody(ctx context.Context, body io.ReadCloser) {
 	if err := body.Close(); err != nil {
-		logger.Log(context.Background(), err).Error("error closing body")
+		logger.Log(ctx, err).Error("error closing body")
 	}
 }
 
