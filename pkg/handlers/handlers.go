@@ -7,7 +7,6 @@ import (
 	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"time"
@@ -25,98 +24,87 @@ type CallbackRequest struct {
 func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
+
 	id := ctx.Value(logger.APP_ID).(string)
 
-	// Start the process instance
-	command, _ := zbClient.NewCreateInstanceCommand().
-		BPMNProcessId(zbProcessID).
-		LatestVersion().
-		VariablesFromMap(map[string]interface{}{
-			zeebe.APP_ID: id,
-		})
-	resp, err := command.Send(ctx)
+	processInstanceKey, err := startProcess(ctx, zbClient, zbProcessID, id)
 	if err != nil {
-		logger.Log(ctx, err).WithField(logger.RESPONSE, resp).Errorf("error")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
 	}
-	logger.Log(ctx, nil).WithFields(log.Fields{
-		logger.BMPN_ID:     resp.BpmnProcessId,
-		logger.PROCESS_KEY: resp.ProcessInstanceKey,
-	}).Infof("new process instance")
 
-	// Listen for the job worker result or the timeout
-	ch := make(chan bool, 1)
-	cache.Add(id, ch)
+	ch, cleanup := cache.Add(id)
+	defer cleanup(id)
 
 	select {
 	case <-ch:
-		// If we got the result within the timeout, send it back
-		err := json.NewEncoder(w).Encode(
-			StartProcessResponse{
-				ProcessInstanceKey: resp.GetProcessInstanceKey(),
-				Result:             "Success",
-			})
-		if err != nil {
-			return
-		}
-		cache.Del(id)
+		respondWithJSON(w, StartProcessResponse{
+			ProcessInstanceKey: processInstanceKey,
+			Result:             "Success",
+		})
 	case <-ctx.Done():
-		// If the context is done, it means we hit the timeout
-		http.Error(w, "timeout waiting for the process to complete", http.StatusRequestTimeout)
+		respondWithError(ctx, w, ctx.Err(), http.StatusRequestTimeout)
 	}
 }
 
 func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+
 	id := ctx.Value(logger.APP_ID).(string)
 	var callbackReq CallbackRequest
 
-	// Read the request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		logger.Log(ctx, err).Errorf("error")
-		http.Error(w, "failed to read request body", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&callbackReq); err != nil {
+		respondWithError(ctx, w, err, http.StatusBadRequest)
 		return
 	}
-	defer func(b io.ReadCloser) {
-		err := b.Close()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}(r.Body)
+	defer closeBody(r.Body)
 
-	// Unmarshal the JSON request body into the CallbackRequest struct
-	err = json.Unmarshal(body, &callbackReq)
-	if err != nil {
-		logger.Log(ctx, err).WithField(logger.BODY, body).Errorf("error")
-		http.Error(w, "failed to unmarshal request body", http.StatusBadRequest)
+	if err := publishCallbackMessage(ctx, zbClient, id, callbackReq.Message); err != nil {
+		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
 	}
-	logger.Log(ctx, nil).WithFields(log.Fields{
-		logger.MESSAGE: callbackReq.Message,
-	}).Debugf("callback request")
 
-	// Publish a message to the process instance
-	command, _ := zbClient.NewPublishMessageCommand().
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func respondWithError(ctx context.Context, w http.ResponseWriter, err error, statusCode int) {
+	logger.Log(ctx, err).Error("error")
+	http.Error(w, err.Error(), statusCode)
+}
+
+func respondWithJSON(w http.ResponseWriter, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(payload)
+}
+
+func closeBody(body io.ReadCloser) {
+	if err := body.Close(); err != nil {
+		logger.Log(context.Background(), err).Error("error closing body")
+	}
+}
+
+func startProcess(ctx context.Context, zbClient zbc.Client, zbProcessID, id string) (int64, error) {
+	cmd, _ := zbClient.NewCreateInstanceCommand().
+		BPMNProcessId(zbProcessID).
+		LatestVersion().
+		VariablesFromMap(map[string]interface{}{
+			zeebe.APP_ID: id,
+		})
+	resp, err := cmd.Send(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return resp.GetProcessInstanceKey(), nil
+}
+
+func publishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
+	cmd, _ := zbClient.NewPublishMessageCommand().
 		MessageName("callback").
 		CorrelationKey(id).
 		VariablesFromMap(map[string]interface{}{
-			zeebe.MESSAGE: callbackReq.Message,
+			zeebe.MESSAGE: message,
 		})
-	resp, err := command.Send(ctx)
-	if err != nil {
-		logger.Log(ctx, err).WithField(logger.RESPONSE, resp).Errorf("error")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	logger.Log(ctx, nil).WithFields(log.Fields{
-		logger.MESSAGE: callbackReq.Message,
-		"message-key":  resp.GetKey(),
-	}).Infof("callback message sent")
-
-	// Respond with a success message
-	w.WriteHeader(http.StatusNoContent)
+	_, err := cmd.Send(ctx)
+	return err
 }
