@@ -10,13 +10,13 @@ import (
 	"time"
 )
 
-const APP_ID = "zeebe-app-id"
-const BMPN_ID = "zeebe-bpmn-id"
-const PROCESS_KEY = "zeebe-process-key"
-const JOB_TYPE = "zeebe-job-type"
-const INPUTS = "zeebe-worker-inputs"
-const OUTPUTS = "zeebe-worker-outputs"
-const RESPONSE = "zeebe-response"
+const APP_ID = "zb-app-id"
+const BMPN_ID = "zb-bpmn-id"
+const PROCESS_KEY = "zb-process-key"
+const JOB_TYPE = "zb-job-type"
+const INPUTS = "zb-job-inputs"
+const OUTPUTS = "zb-job-outputs"
+const RESPONSE = "zb-response"
 const BODY = "body"
 const MESSAGE = "message"
 
