@@ -11,18 +11,18 @@ func init() {
 	cache = make(map[string]chan bool)
 }
 
-func Add(uuid string, ch chan bool) {
+func Add(id string, ch chan bool) {
 	mu.Lock()
-	cache[uuid] = ch
+	cache[id] = ch
 	defer mu.Unlock()
 }
 
-func Get(uuid string) chan bool {
-	return cache[uuid]
+func Get(id string) chan bool {
+	return cache[id]
 }
 
-func Del(uuid string) {
+func Del(id string) {
 	mu.Lock()
-	delete(cache, uuid)
+	delete(cache, id)
 	defer mu.Unlock()
 }
