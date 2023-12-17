@@ -19,7 +19,6 @@ type StartProcessResponse struct {
 }
 
 type CallbackRequest struct {
-	Uuid    string `json:"uuid"`
 	Message string `json:"message"`
 }
 
@@ -70,6 +69,7 @@ func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+	id := ctx.Value(logger.APP_ID).(string)
 	var callbackReq CallbackRequest
 
 	// Read the request body
@@ -93,14 +93,13 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		logger.APP_ID: callbackReq.Uuid,
-		"message":     callbackReq.Message,
+		"message": callbackReq.Message,
 	}).Debugf("callback request")
 
 	// Publish a message to the process instance
 	command, _ := zbClient.NewPublishMessageCommand().
 		MessageName("callback").
-		CorrelationKey(callbackReq.Uuid).
+		CorrelationKey(id).
 		VariablesFromMap(map[string]interface{}{
 			"message": callbackReq.Message,
 		})
@@ -110,7 +109,6 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(ctx, nil).WithFields(log.Fields{
-		logger.APP_ID: callbackReq.Uuid,
 		"message":     callbackReq.Message,
 		"message-key": response.GetKey(),
 	}).Infof("callback message sent")
