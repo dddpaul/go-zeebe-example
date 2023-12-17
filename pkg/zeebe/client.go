@@ -9,21 +9,21 @@ import (
 const APP_ID = "app_id"
 const MESSAGE = "message"
 
-func NewClient(zeebeBrokerAddr string) zbc.Client {
-	zbClient, err := zbc.NewClient(&zbc.ClientConfig{
-		GatewayAddress:         zeebeBrokerAddr,
+func NewClient(addr string) zbc.Client {
+	client, err := zbc.NewClient(&zbc.ClientConfig{
+		GatewayAddress:         addr,
 		UsePlaintextConnection: true,
 	})
 	if err != nil {
 		panic(err)
 	}
-	return zbClient
+	return client
 }
 
-func DeployProcessDefinition(client zbc.Client) {
+func DeployProcessDefinition(client zbc.Client, processID string) {
 	ctx := context.Background()
 	response, err := client.NewDeployResourceCommand().
-		AddResourceFile("diagram_1.bpmn").
+		AddResourceFile(processID + ".bpmn").
 		Send(ctx)
 	if err != nil {
 		panic(err)

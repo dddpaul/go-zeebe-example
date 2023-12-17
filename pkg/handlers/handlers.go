@@ -22,14 +22,14 @@ type CallbackRequest struct {
 	Message string `json:"message"`
 }
 
-func Sync(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
+func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 	id := ctx.Value(logger.APP_ID).(string)
 
 	// Start the process instance
 	command, _ := zbClient.NewCreateInstanceCommand().
-		BPMNProcessId("diagram_1").
+		BPMNProcessId(zbProcessID).
 		LatestVersion().
 		VariablesFromMap(map[string]interface{}{
 			zeebe.APP_ID: id,

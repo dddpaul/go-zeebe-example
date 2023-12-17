@@ -15,17 +15,19 @@ import (
 )
 
 var (
-	verbose         bool
-	trace           bool
-	zeebeBrokerAddr string
-	port            string
+	verbose      bool
+	trace        bool
+	port         string
+	zbBrokerAddr string
+	zbProcessID  string
 )
 
 func main() {
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.BoolVar(&trace, "trace", false, "Enable network tracing")
 	flag.StringVar(&port, "port", ":8080", "Port to listen (prepended by colon), i.e. :8080")
-	flag.StringVar(&zeebeBrokerAddr, "zeebe-broker-addr", LookupEnvOrString("ZEEBE_BROKER_ADDR", ""), "Zeebe broker address")
+	flag.StringVar(&zbBrokerAddr, "zeebe-broker-addr", LookupEnvOrString("ZEEBE_BROKER_ADDR", "127.0.0.1:26500"), "Zeebe broker address")
+	flag.StringVar(&zbProcessID, "zeebe-process-id", LookupEnvOrString("ZEEBE_PROCESS_ID", "diagram_1"), "BPMN process ID")
 
 	log.SetFormatter(&log.TextFormatter{
 		DisableColors: true,
@@ -35,10 +37,6 @@ func main() {
 	flag.Parse()
 	log.Printf("Configuration %v, timezone %v", getConfig(flag.CommandLine), time.Local)
 
-	if len(zeebeBrokerAddr) == 0 {
-		panic("Zeebe broker address has to be specified")
-	}
-
 	if verbose {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -47,7 +45,7 @@ func main() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	zbClient := zeebe.NewClient(zeebeBrokerAddr)
+	zbClient := zeebe.NewClient(zbBrokerAddr)
 	defer func(z zbc.Client) {
 		err := z.Close()
 		if err != nil {
@@ -56,18 +54,18 @@ func main() {
 	}(zbClient)
 
 	// Deploy process and start job workers
-	zeebe.DeployProcessDefinition(zbClient)
+	zeebe.DeployProcessDefinition(zbClient, zbProcessID)
 	go zeebe.StartJobWorkers(zbClient)
 
 	r := chi.NewRouter()
 	r.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
-		handlers.Sync(zbClient, w, r)
+		handlers.Sync(zbClient, zbProcessID, w, r)
 	})
 	r.Post("/callback", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Callback(zbClient, w, r)
 	})
 
-	log.Printf("Start HTTP service on port %s with Zeebe broker %s", port, zeebeBrokerAddr)
+	log.Printf("Start HTTP service on port %s with Zeebe broker %s", port, zbBrokerAddr)
 	err := http.ListenAndServe(port, logger.NewMiddleware(r))
 	if err != nil {
 		panic(err)
