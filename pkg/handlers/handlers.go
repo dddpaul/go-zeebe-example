@@ -47,6 +47,31 @@ func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *htt
 	}
 }
 
+func SyncWithResult(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+
+	id := ctx.Value(logger.APP_ID).(string)
+
+	cmd, _ := zbClient.NewCreateInstanceCommand().
+		BPMNProcessId(zbProcessID).
+		LatestVersion().
+		VariablesFromMap(map[string]interface{}{
+			zeebe.APP_ID: id,
+		})
+	resp, err := cmd.WithResult().Send(ctx)
+
+	if err != nil {
+		respondWithError(ctx, w, err, http.StatusInternalServerError)
+		return
+	}
+
+	respondWithJSON(w, StartProcessResponse{
+		ProcessInstanceKey: resp.GetProcessInstanceKey(),
+		Result:             "Success",
+	})
+}
+
 func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()

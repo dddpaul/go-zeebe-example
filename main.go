@@ -61,6 +61,9 @@ func main() {
 	r.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Sync(zbClient, zbProcessID, w, r)
 	})
+	r.Post("/sync-with-result", func(w http.ResponseWriter, r *http.Request) {
+		handlers.SyncWithResult(zbClient, zbProcessID, w, r)
+	})
 	r.Post("/callback", func(w http.ResponseWriter, r *http.Request) {
 		handlers.Callback(zbClient, w, r)
 	})
