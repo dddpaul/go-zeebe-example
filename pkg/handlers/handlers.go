@@ -37,10 +37,10 @@ func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *htt
 	defer cleanup(id)
 
 	select {
-	case <-ch:
+	case result := <-ch:
 		respondWithJSON(w, StartProcessResponse{
 			ProcessInstanceKey: processInstanceKey,
-			Result:             "Success",
+			Result:             result.(string),
 		})
 	case <-ctx.Done():
 		respondWithError(ctx, w, ctx.Err(), http.StatusRequestTimeout)

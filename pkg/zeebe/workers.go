@@ -33,7 +33,7 @@ func handleJob(client worker.JobClient, job entities.Job) {
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("job activated")
 
 	result := map[string]interface{}{
-		"result": "Yes",
+		"result": "service task success",
 	}
 
 	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
@@ -49,7 +49,7 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("job activated")
 
 	result := map[string]interface{}{
-		"result": "Yes",
+		"result": "final task success",
 	}
 
 	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
@@ -60,7 +60,7 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 
 	// Send complete signal for waiting /sync method
 	ch := cache.Get(ctx.Value(logger.APP_ID).(string))
-	ch <- true
+	ch <- result["result"]
 }
 
 func newContext(job entities.Job) context.Context {
