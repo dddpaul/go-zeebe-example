@@ -30,3 +30,31 @@ func DeployProcessDefinition(client zbc.Client, processID string) {
 	}
 	log.Printf("Process definitions deployed: %v", response.GetDeployments())
 }
+
+func StartProcess(ctx context.Context, zbClient zbc.Client, zbProcessID, id string) (int64, error) {
+	cmd, _ := zbClient.NewCreateInstanceCommand().
+		BPMNProcessId(zbProcessID).
+		LatestVersion().
+		VariablesFromMap(map[string]interface{}{
+			APP_ID: id,
+		})
+	resp, err := cmd.Send(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return resp.GetProcessInstanceKey(), nil
+}
+
+func StartProcessWithResult(ctx context.Context, zbClient zbc.Client, zbProcessID, id string) (int64, string, error) {
+	cmd, _ := zbClient.NewCreateInstanceCommand().
+		BPMNProcessId(zbProcessID).
+		LatestVersion().
+		VariablesFromMap(map[string]interface{}{
+			APP_ID: id,
+		})
+	resp, err := cmd.WithResult().Send(ctx)
+	if err != nil {
+		return 0, "", err
+	}
+	return resp.GetProcessInstanceKey(), resp.GetVariables(), nil
+}

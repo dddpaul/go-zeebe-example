@@ -27,7 +27,7 @@ func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *htt
 
 	id := ctx.Value(logger.APP_ID).(string)
 
-	processInstanceKey, err := startProcess(ctx, zbClient, zbProcessID, id)
+	processInstanceKey, err := zeebe.StartProcess(ctx, zbClient, zbProcessID, id)
 	if err != nil {
 		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
@@ -53,22 +53,15 @@ func SyncWithResult(zbClient zbc.Client, zbProcessID string, w http.ResponseWrit
 
 	id := ctx.Value(logger.APP_ID).(string)
 
-	cmd, _ := zbClient.NewCreateInstanceCommand().
-		BPMNProcessId(zbProcessID).
-		LatestVersion().
-		VariablesFromMap(map[string]interface{}{
-			zeebe.APP_ID: id,
-		})
-	resp, err := cmd.WithResult().Send(ctx)
-
+	processInstanceKey, variables, err := zeebe.StartProcessWithResult(ctx, zbClient, zbProcessID, id)
 	if err != nil {
 		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
 	}
 
 	respondWithJSON(w, StartProcessResponse{
-		ProcessInstanceKey: resp.GetProcessInstanceKey(),
-		Result:             "Success",
+		ProcessInstanceKey: processInstanceKey,
+		Result:             variables,
 	})
 }
 
@@ -85,7 +78,7 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	}
 	defer closeBody(ctx, r.Body)
 
-	if err := publishCallbackMessage(ctx, zbClient, id, callbackReq.Message); err != nil {
+	if err := PublishCallbackMessage(ctx, zbClient, id, callbackReq.Message); err != nil {
 		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
 	}
@@ -109,21 +102,7 @@ func closeBody(ctx context.Context, body io.ReadCloser) {
 	}
 }
 
-func startProcess(ctx context.Context, zbClient zbc.Client, zbProcessID, id string) (int64, error) {
-	cmd, _ := zbClient.NewCreateInstanceCommand().
-		BPMNProcessId(zbProcessID).
-		LatestVersion().
-		VariablesFromMap(map[string]interface{}{
-			zeebe.APP_ID: id,
-		})
-	resp, err := cmd.Send(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return resp.GetProcessInstanceKey(), nil
-}
-
-func publishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
+func PublishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
 	cmd, _ := zbClient.NewPublishMessageCommand().
 		MessageName("callback").
 		CorrelationKey(id).
