@@ -70,15 +70,15 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	id := ctx.Value(logger.APP_ID).(string)
-	var callbackReq CallbackRequest
+	var req CallbackRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&callbackReq); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondWithError(ctx, w, err, http.StatusBadRequest)
 		return
 	}
 	defer closeBody(ctx, r.Body)
 
-	if err := PublishCallbackMessage(ctx, zbClient, id, callbackReq.Message); err != nil {
+	if err := zeebe.PublishCallbackMessage(ctx, zbClient, id, req.Message); err != nil {
 		respondWithError(ctx, w, err, http.StatusInternalServerError)
 		return
 	}
@@ -100,15 +100,4 @@ func closeBody(ctx context.Context, body io.ReadCloser) {
 	if err := body.Close(); err != nil {
 		logger.Log(ctx, err).Error("error closing body")
 	}
-}
-
-func PublishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
-	cmd, _ := zbClient.NewPublishMessageCommand().
-		MessageName("callback").
-		CorrelationKey(id).
-		VariablesFromMap(map[string]interface{}{
-			zeebe.MESSAGE: message,
-		})
-	_, err := cmd.Send(ctx)
-	return err
 }

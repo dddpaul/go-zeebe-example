@@ -6,8 +6,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const APP_ID = "app_id"
-const MESSAGE = "message"
+// BPMN input and output variables
+const (
+	APP_ID  = "app_id"
+	MESSAGE = "message"
+)
+
+// BPMN message references for message catch events
+const (
+	MESSAGE_CALLBACK = "callback"
+)
 
 func NewClient(addr string) zbc.Client {
 	client, err := zbc.NewClient(&zbc.ClientConfig{
@@ -57,4 +65,15 @@ func StartProcessWithResult(ctx context.Context, zbClient zbc.Client, zbProcessI
 		return 0, "", err
 	}
 	return resp.GetProcessInstanceKey(), resp.GetVariables(), nil
+}
+
+func PublishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
+	cmd, _ := zbClient.NewPublishMessageCommand().
+		MessageName(MESSAGE_CALLBACK).
+		CorrelationKey(id).
+		VariablesFromMap(map[string]interface{}{
+			MESSAGE: message,
+		})
+	_, err := cmd.Send(ctx)
+	return err
 }
