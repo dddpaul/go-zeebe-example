@@ -10,21 +10,23 @@ import (
 	"time"
 )
 
+const (
+	SERVICE_TASK = "service-task"
+	FINAL_TASK   = "final-task"
+)
+
 func StartJobWorkers(client zbc.Client) {
+	startJobWorker(client, SERVICE_TASK, handleJob)
+	startJobWorker(client, FINAL_TASK, handleFinalJob)
+}
+
+func startJobWorker(client zbc.Client, jobType string, handler func(client worker.JobClient, job entities.Job)) {
 	jobWorker := client.NewJobWorker().
-		JobType("service-task").
-		Handler(handleJob).
+		JobType(jobType).
+		Handler(handler).
 		Open()
 	defer jobWorker.Close()
-
-	finalWorker := client.NewJobWorker().
-		JobType("final-task").
-		Handler(handleFinalJob).
-		Open()
-	defer finalWorker.Close()
-
 	jobWorker.AwaitClose()
-	finalWorker.AwaitClose()
 }
 
 func handleJob(client worker.JobClient, job entities.Job) {
@@ -36,11 +38,7 @@ func handleJob(client worker.JobClient, job entities.Job) {
 		"result": "service task success",
 	}
 
-	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
-	if _, err := req.Send(ctx); err != nil {
-		logger.Log(ctx, err).Errorf("error")
-	}
-	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
+	completeJob(ctx, client, job, result)
 }
 
 func handleFinalJob(client worker.JobClient, job entities.Job) {
@@ -52,15 +50,21 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 		"result": "final task success",
 	}
 
-	req, _ := client.NewCompleteJobCommand().JobKey(job.Key).VariablesFromMap(result)
-	if _, err := req.Send(ctx); err != nil {
-		logger.Log(ctx, err).Errorf("error")
-	}
-	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
+	completeJob(ctx, client, job, result)
 
 	// Send complete signal for waiting /sync method
 	ch := cache.Get(ctx.Value(logger.APP_ID).(string))
 	ch <- result["result"]
+}
+
+func completeJob(ctx context.Context, client worker.JobClient, job entities.Job, result map[string]interface{}) {
+	req, _ := client.NewCompleteJobCommand().
+		JobKey(job.Key).
+		VariablesFromMap(result)
+	if _, err := req.Send(ctx); err != nil {
+		logger.Log(ctx, err).Errorf("error")
+	}
+	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
 }
 
 func newContext(job entities.Job) context.Context {
