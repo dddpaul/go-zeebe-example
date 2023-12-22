@@ -3,13 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
-	"github.com/dddpaul/go-zeebe-example/pkg/handlers"
-	"github.com/dddpaul/go-zeebe-example/pkg/logger"
-	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
-	"github.com/go-chi/chi/v5"
+	"github.com/dddpaul/go-zeebe-example/pkg/service"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 	"os"
 	"time"
 )
@@ -45,34 +40,12 @@ func main() {
 		log.SetLevel(log.TraceLevel)
 	}
 
-	zbClient := zeebe.NewClient(zbBrokerAddr)
-	defer func(z zbc.Client) {
-		err := z.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(zbClient)
+	s := service.New(
+		service.WithHttpPort(port),
+		service.WithZeebe(zbBrokerAddr, zbProcessID),
+		service.WithRedis())
 
-	// Deploy process and start job workers
-	zeebe.DeployProcessDefinition(zbClient, zbProcessID)
-	go zeebe.StartJobWorkers(zbClient)
-
-	r := chi.NewRouter()
-	r.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
-		handlers.Sync(zbClient, zbProcessID, w, r)
-	})
-	r.Post("/sync-with-result", func(w http.ResponseWriter, r *http.Request) {
-		handlers.SyncWithResult(zbClient, zbProcessID, w, r)
-	})
-	r.Post("/callback", func(w http.ResponseWriter, r *http.Request) {
-		handlers.Callback(zbClient, w, r)
-	})
-
-	log.Printf("Start HTTP service on port %s with Zeebe broker %s", port, zbBrokerAddr)
-	err := http.ListenAndServe(port, logger.NewMiddleware(r))
-	if err != nil {
-		panic(err)
-	}
+	s.Start()
 }
 
 func LookupEnvOrString(key string, defaultVal string) string {
