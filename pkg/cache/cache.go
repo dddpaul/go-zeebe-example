@@ -1,6 +1,8 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+)
 
 var cache Cache
 
@@ -31,7 +33,7 @@ func Del(id string) {
 	cache.Del(id)
 }
 
-func NewSimpleCache() *SimpleCache {
+func NewSimpleCache() Cache {
 	return &SimpleCache{
 		cache: make(map[string]chan interface{}),
 	}

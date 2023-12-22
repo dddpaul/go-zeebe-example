@@ -5,8 +5,8 @@ import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/entities"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
-	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
+	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"time"
 )
 
@@ -15,7 +15,10 @@ const (
 	FINAL_TASK   = "final-task"
 )
 
-func StartJobWorkers(client zbc.Client) {
+var pubSub pubsub.PubSub
+
+func StartJobWorkers(client zbc.Client, ps pubsub.PubSub) {
+	pubSub = ps
 	startJobWorker(client, SERVICE_TASK, handleJob)
 	startJobWorker(client, FINAL_TASK, handleFinalJob)
 }
@@ -53,8 +56,14 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 	completeJob(ctx, client, job, result)
 
 	// Send complete signal for waiting /sync method
-	ch := cache.Get(ctx.Value(logger.APP_ID).(string))
-	ch <- result["result"]
+	//ch := cache.Get(ctx.Value(logger.APP_ID).(string))
+	//ch <- result["result"]
+
+	err := pubSub.Publish(ctx, ctx.Value(logger.APP_ID).(string))
+	if err != nil {
+		logger.Log(nil, err).WithField(logger.INPUTS, job.Variables).Error("error while publish to redis")
+		return
+	}
 }
 
 func completeJob(ctx context.Context, client worker.JobClient, job entities.Job, result map[string]interface{}) {

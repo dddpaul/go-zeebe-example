@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
-	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
+	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
 	"io"
 	"net/http"
@@ -21,7 +21,7 @@ type CallbackRequest struct {
 	Message string `json:"message"`
 }
 
-func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *http.Request) {
+func Sync(zbClient zbc.Client, zbProcessID string, pubSub pubsub.PubSub, w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
@@ -33,8 +33,10 @@ func Sync(zbClient zbc.Client, zbProcessID string, w http.ResponseWriter, r *htt
 		return
 	}
 
-	ch, cleanup := cache.Add(id)
-	defer cleanup(id)
+	//ch, cleanup := cache.Add(id)
+	//defer cleanup(id)
+
+	ch := pubSub.Subscribe(ctx, id)
 
 	select {
 	case result := <-ch:

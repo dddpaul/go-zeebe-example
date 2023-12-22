@@ -2,22 +2,24 @@ package service
 
 import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
+	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/handlers"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
+	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
 	"github.com/go-chi/chi/v5"
-	"github.com/redis/go-redis/v9"
 	"net/http"
 )
 
 type Service struct {
-	router      chi.Router
 	zbClient    zbc.Client
 	zbProcessID string
 	zbCleanup   func(z zbc.Client)
-	rdb         *redis.ClusterClient
-	rdbClose    func(r *redis.ClusterClient)
-	port        string
+	//rdb         *redis.ClusterClient
+	//rdbClose    func(r *redis.ClusterClient)
+	cache  cache.Cache
+	pubSub pubsub.PubSub
+	port   string
 }
 
 type Option func(s *Service)
@@ -37,15 +39,16 @@ func WithZeebe(zbBrokerAddr string, zbProcessID string) Option {
 
 func WithRedis() Option {
 	return func(s *Service) {
-		s.rdb = redis.NewClusterClient(&redis.ClusterOptions{
-			Addrs: []string{":6379"},
-		})
-		s.rdbClose = func(r *redis.ClusterClient) {
-			err := r.Close()
-			if err != nil {
-				panic(err)
-			}
-		}
+		//s.rdb = redis.NewClusterClient(&redis.ClusterOptions{
+		//	Addrs: []string{":6379"},
+		//})
+		//s.rdbClose = func(r *redis.ClusterClient) {
+		//	err := r.Close()
+		//	if err != nil {
+		//		panic(err)
+		//	}
+		//}
+		s.pubSub = pubsub.NewRedisPubSub()
 	}
 }
 
@@ -56,12 +59,14 @@ func WithHttpPort(port string) Option {
 }
 
 func New(opts ...Option) *Service {
-	s := &Service{
-		router: chi.NewRouter(),
-	}
+	s := &Service{}
 
 	for _, opt := range opts {
 		opt(s)
+	}
+
+	if s.cache == nil {
+		s.cache = cache.NewSimpleCache()
 	}
 
 	return s
@@ -72,11 +77,11 @@ func (s *Service) Start() {
 
 	// Deploy process and start job workers
 	zeebe.DeployProcessDefinition(s.zbClient, s.zbProcessID)
-	go zeebe.StartJobWorkers(s.zbClient)
+	go zeebe.StartJobWorkers(s.zbClient, s.pubSub)
 
 	router := chi.NewRouter()
 	router.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
-		handlers.Sync(s.zbClient, s.zbProcessID, w, r)
+		handlers.Sync(s.zbClient, s.zbProcessID, s.pubSub, w, r)
 	})
 	router.Post("/sync-with-result", func(w http.ResponseWriter, r *http.Request) {
 		handlers.SyncWithResult(s.zbClient, s.zbProcessID, w, r)
@@ -85,7 +90,7 @@ func (s *Service) Start() {
 		handlers.Callback(s.zbClient, w, r)
 	})
 
-	err := http.ListenAndServe(s.port, logger.NewMiddleware(s.router))
+	err := http.ListenAndServe(s.port, logger.NewMiddleware(router))
 	if err != nil {
 		panic(err)
 	}
@@ -93,5 +98,5 @@ func (s *Service) Start() {
 
 func (s *Service) cleanup() {
 	s.zbCleanup(s.zbClient)
-	s.rdbClose(s.rdb)
+	//s.rdbClose(s.rdb)
 }
