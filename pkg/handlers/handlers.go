@@ -42,7 +42,7 @@ func Sync(zbClient zbc.Client, zbProcessID string, pubSub pubsub.PubSub, w http.
 	case result := <-ch:
 		respondWithJSON(w, StartProcessResponse{
 			ProcessInstanceKey: processInstanceKey,
-			Result:             result.(string),
+			Result:             result.Text,
 		})
 	case <-ctx.Done():
 		respondWithError(ctx, w, ctx.Err(), http.StatusRequestTimeout)
