@@ -38,13 +38,14 @@ func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	return result, nil
 }
 
-func (p *RedisPubSub) Close() {
+func (p *RedisPubSub) Close(ctx context.Context, channel string) error {
 	//if err := p.rdb.Close(); err != nil {
 	//	panic(err)
 	//}
 	if p.pubSub != nil {
 		if err := p.pubSub.Close(); err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }

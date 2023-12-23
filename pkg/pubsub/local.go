@@ -28,15 +28,21 @@ func (c *localPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	ch := c.get(channel)
 	result := make(chan Message, 1)
 	go func() {
-		if txt, ok := (<-ch).(string); ok {
-			logger.Log(ctx, nil).WithField(logger.MESSAGE, txt).Debugf("message received")
-			result <- Message{Text: txt}
+		for msg := range ch {
+			if txt, ok := msg.(string); ok {
+				logger.Log(ctx, nil).WithField(logger.MESSAGE, txt).Debugf("message received")
+				result <- Message{Text: txt}
+			}
 		}
+		close(result)
 	}()
 	return result, c.del
 }
 
-func (c *localPubSub) Close() {
+func (c *localPubSub) Close(ctx context.Context, channel string) error {
+	ch := c.get(channel)
+	close(ch)
+	return nil
 }
 
 func (c *localPubSub) get(channel string) chan interface{} {

@@ -29,7 +29,8 @@ func Test_RedisPubSub(t *testing.T) {
 				err := pubSub.Publish(context.Background(), channel, msg)
 				require.NoError(t, err)
 			}
-			pubSub.Close()
+			err := pubSub.Close(context.Background(), channel)
+			require.NoError(t, err)
 		}()
 
 		// then
