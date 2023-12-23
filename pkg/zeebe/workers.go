@@ -19,8 +19,8 @@ var pubSub pubsub.PubSub
 
 func StartJobWorkers(client zbc.Client, ps pubsub.PubSub) {
 	pubSub = ps
-	startJobWorker(client, SERVICE_TASK, handleJob)
-	startJobWorker(client, FINAL_TASK, handleFinalJob)
+	go startJobWorker(client, SERVICE_TASK, handleJob)
+	go startJobWorker(client, FINAL_TASK, handleFinalJob)
 }
 
 func startJobWorker(client zbc.Client, jobType string, handler func(client worker.JobClient, job entities.Job)) {
@@ -61,7 +61,7 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 
 	err := pubSub.Publish(ctx, ctx.Value(logger.APP_ID).(string))
 	if err != nil {
-		logger.Log(nil, err).WithField(logger.INPUTS, job.Variables).Error("error while publish to redis")
+		logger.Log(ctx, err).WithField(logger.INPUTS, job.Variables).Error("error while publish to redis")
 		return
 	}
 }
