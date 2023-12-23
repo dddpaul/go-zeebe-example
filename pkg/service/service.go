@@ -83,5 +83,5 @@ func (s *Service) close() {
 	if err := s.zbClient.Close(); err != nil {
 		panic(err)
 	}
-	s.pubSub.Close()
+	//s.pubSub.Close()
 }
