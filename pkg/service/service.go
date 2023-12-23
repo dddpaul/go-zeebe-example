@@ -8,6 +8,7 @@ import (
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
 	"github.com/go-chi/chi/v5"
 	"net/http"
+	"strings"
 )
 
 type Service struct {
@@ -41,8 +42,9 @@ func WithRedis(redisAddr string) Option {
 		//		panic(err)
 		//	}
 		//}
+
 		if len(redisAddr) > 0 {
-			s.pubSub = pubsub.NewRedisPubSub(redisAddr)
+			s.pubSub = pubsub.NewRedisPubSub(strings.Split(redisAddr, ","))
 		}
 	}
 }

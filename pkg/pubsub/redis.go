@@ -9,10 +9,10 @@ type RedisPubSub struct {
 	rdb redis.UniversalClient
 }
 
-func NewRedisPubSub(addr string) PubSub {
+func NewRedisPubSub(addrs []string) PubSub {
 	return &RedisPubSub{
 		rdb: redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs: []string{addr},
+			Addrs: addrs,
 		})}
 }
 
