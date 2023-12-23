@@ -38,7 +38,7 @@ func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 		}
 		close(result)
 	}()
-	return result, nil
+	return result, p.del
 }
 
 func (p *RedisPubSub) Close(ctx context.Context, channel string) error {
