@@ -11,12 +11,12 @@ type PubSub interface {
 }
 
 type RedisPubSub struct {
-	rdb *redis.ClusterClient
+	rdb redis.UniversalClient
 }
 
 func NewRedisPubSub() PubSub {
 	return &RedisPubSub{
-		rdb: redis.NewClusterClient(&redis.ClusterOptions{
+		rdb: redis.NewUniversalClient(&redis.UniversalOptions{
 			Addrs: []string{":6379"},
 		})}
 }
