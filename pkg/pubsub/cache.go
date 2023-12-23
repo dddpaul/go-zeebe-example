@@ -24,7 +24,7 @@ func (c *SimpleCache) Publish(ctx context.Context, channel string, message inter
 	return nil
 }
 
-func (c *SimpleCache) Subscribe(ctx context.Context, channel string) chan Message {
+func (c *SimpleCache) Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string)) {
 	ch := c.get(channel)
 	result := make(chan Message, 1)
 	go func() {
@@ -33,7 +33,7 @@ func (c *SimpleCache) Subscribe(ctx context.Context, channel string) chan Messag
 			result <- Message{Text: txt}
 		}
 	}()
-	return result
+	return result, c.del
 }
 
 func (c *SimpleCache) get(channel string) chan interface{} {
@@ -45,6 +45,12 @@ func (c *SimpleCache) get(channel string) chan interface{} {
 		result = make(chan interface{}, 1)
 		c.cache[channel] = result
 	}
-	c.mu.Unlock()
+	defer c.mu.Unlock()
 	return result
+}
+
+func (c *SimpleCache) del(ctx context.Context, channel string) {
+	c.mu.Lock()
+	delete(c.cache, channel)
+	defer c.mu.Unlock()
 }

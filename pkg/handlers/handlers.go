@@ -33,7 +33,12 @@ func Sync(zbClient zbc.Client, zbProcessID string, pubSub pubsub.PubSub, w http.
 		return
 	}
 
-	ch := pubSub.Subscribe(ctx, id)
+	ch, cleanup := pubSub.Subscribe(ctx, id)
+	defer func() {
+		if cleanup != nil {
+			cleanup(ctx, id)
+		}
+	}()
 
 	select {
 	case result := <-ch:

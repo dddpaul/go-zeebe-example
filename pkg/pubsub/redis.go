@@ -23,11 +23,11 @@ func (p *RedisPubSub) Publish(ctx context.Context, channel string, message inter
 	return nil
 }
 
-func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) chan Message {
+func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string)) {
 	ch := make(chan Message, 1)
 	sub := p.rdb.Subscribe(ctx, channel).Channel(redis.WithChannelSize(1))
 	go func() {
 		ch <- Message{Text: (<-sub).Payload}
 	}()
-	return ch
+	return ch, nil
 }

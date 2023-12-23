@@ -6,7 +6,7 @@ import (
 
 type PubSub interface {
 	Publish(ctx context.Context, channel string, message interface{}) error
-	Subscribe(ctx context.Context, channel string) chan Message
+	Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string))
 }
 
 type Message struct {
