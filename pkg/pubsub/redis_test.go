@@ -1,9 +1,8 @@
-package main
+package pubsub
 
 import (
 	"context"
 	"fmt"
-	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,22 +12,33 @@ import (
 	"time"
 )
 
-func TestRedisPubSub(t *testing.T) {
+func Test_RedisPubSub(t *testing.T) {
 	redisAddr, teardown := startTestContainer(t)
 	defer teardown()
 
-	channel := "id-" + uuid.NewString()
-	message := "Success"
-	pubSub := pubsub.NewRedisPubSub([]string{redisAddr})
-	ch, _ := pubSub.Subscribe(context.Background(), channel)
+	t.Run("should receive all published message", func(t *testing.T) {
+		// given
+		pubSub := NewRedisPubSub([]string{redisAddr})
+		channel := "id-" + uuid.NewString()
+		messages := []string{"Message-1", "Message-2", "Message-3"}
+		ch, _ := pubSub.Subscribe(context.Background(), channel)
 
-	go func() {
-		err := pubSub.Publish(context.Background(), channel, message)
-		assert.Nil(t, err)
-	}()
+		// when
+		go func() {
+			for _, msg := range messages {
+				err := pubSub.Publish(context.Background(), channel, msg)
+				require.NoError(t, err)
+			}
+			pubSub.Close()
+		}()
 
-	received := <-ch
-	assert.Equal(t, message, received.Text)
+		// then
+		i := 0
+		for received := range ch {
+			assert.Equal(t, messages[i], received.Text)
+			i++
+		}
+	})
 }
 
 func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {

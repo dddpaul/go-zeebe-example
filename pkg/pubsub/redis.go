@@ -6,7 +6,8 @@ import (
 )
 
 type RedisPubSub struct {
-	rdb redis.UniversalClient
+	rdb    redis.UniversalClient
+	pubSub *redis.PubSub
 }
 
 func NewRedisPubSub(addrs []string) PubSub {
@@ -24,16 +25,26 @@ func (p *RedisPubSub) Publish(ctx context.Context, channel string, message inter
 }
 
 func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string)) {
-	ch := make(chan Message, 1)
-	sub := p.rdb.Subscribe(ctx, channel).Channel(redis.WithChannelSize(1))
+	size := 1
+	result := make(chan Message, size)
+	p.pubSub = p.rdb.Subscribe(ctx, channel)
+	ch := p.pubSub.Channel(redis.WithChannelSize(size))
 	go func() {
-		ch <- Message{Text: (<-sub).Payload}
+		for msg := range ch {
+			result <- Message{Text: msg.Payload}
+		}
+		close(result)
 	}()
-	return ch, nil
+	return result, nil
 }
 
 func (p *RedisPubSub) Close() {
-	if err := p.rdb.Close(); err != nil {
-		panic(err)
+	//if err := p.rdb.Close(); err != nil {
+	//	panic(err)
+	//}
+	if p.pubSub != nil {
+		if err := p.pubSub.Close(); err != nil {
+			panic(err)
+		}
 	}
 }
