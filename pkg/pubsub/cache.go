@@ -36,6 +36,9 @@ func (c *localPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	return result, c.del
 }
 
+func (c *localPubSub) Close() {
+}
+
 func (c *localPubSub) get(channel string) chan interface{} {
 	var result chan interface{}
 	c.mu.Lock()

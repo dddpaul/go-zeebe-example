@@ -31,3 +31,9 @@ func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	}()
 	return ch, nil
 }
+
+func (p *RedisPubSub) Close() {
+	if err := p.rdb.Close(); err != nil {
+		panic(err)
+	}
+}

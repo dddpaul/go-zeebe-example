@@ -14,7 +14,6 @@ import (
 type Service struct {
 	zbClient    zbc.Client
 	zbProcessID string
-	zbCleanup   func(z zbc.Client)
 	pubSub      pubsub.PubSub
 	port        string
 }
@@ -25,24 +24,11 @@ func WithZeebe(zbBrokerAddr string, zbProcessID string) Option {
 	return func(s *Service) {
 		s.zbClient = zeebe.NewClient(zbBrokerAddr)
 		s.zbProcessID = zbProcessID
-		s.zbCleanup = func(z zbc.Client) {
-			err := z.Close()
-			if err != nil {
-				panic(err)
-			}
-		}
 	}
 }
 
 func WithRedis(redisAddr string) Option {
 	return func(s *Service) {
-		//s.rdbClose = func(r *redis.ClusterClient) {
-		//	err := r.Close()
-		//	if err != nil {
-		//		panic(err)
-		//	}
-		//}
-
 		if len(redisAddr) > 0 {
 			s.pubSub = pubsub.NewRedisPubSub(strings.Split(redisAddr, ","))
 		}
@@ -70,7 +56,7 @@ func New(opts ...Option) *Service {
 }
 
 func (s *Service) Start() {
-	defer s.cleanup()
+	defer s.close()
 
 	// Deploy process and start job workers
 	zeebe.DeployProcessDefinition(s.zbClient, s.zbProcessID)
@@ -93,7 +79,9 @@ func (s *Service) Start() {
 	}
 }
 
-func (s *Service) cleanup() {
-	s.zbCleanup(s.zbClient)
-	//s.rdbClose(s.rdb)
+func (s *Service) close() {
+	if err := s.zbClient.Close(); err != nil {
+		panic(err)
+	}
+	s.pubSub.Close()
 }
