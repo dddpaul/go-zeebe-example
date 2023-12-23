@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
-	"github.com/dddpaul/go-zeebe-example/pkg/cache"
 	"github.com/dddpaul/go-zeebe-example/pkg/handlers"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
@@ -15,11 +14,8 @@ type Service struct {
 	zbClient    zbc.Client
 	zbProcessID string
 	zbCleanup   func(z zbc.Client)
-	//rdb         *redis.ClusterClient
-	//rdbClose    func(r *redis.ClusterClient)
-	cache  cache.Cache
-	pubSub pubsub.PubSub
-	port   string
+	pubSub      pubsub.PubSub
+	port        string
 }
 
 type Option func(s *Service)
@@ -37,18 +33,17 @@ func WithZeebe(zbBrokerAddr string, zbProcessID string) Option {
 	}
 }
 
-func WithRedis() Option {
+func WithRedis(redisAddr string) Option {
 	return func(s *Service) {
-		//s.rdb = redis.NewClusterClient(&redis.ClusterOptions{
-		//	Addrs: []string{":6379"},
-		//})
 		//s.rdbClose = func(r *redis.ClusterClient) {
 		//	err := r.Close()
 		//	if err != nil {
 		//		panic(err)
 		//	}
 		//}
-		s.pubSub = pubsub.NewRedisPubSub()
+		if len(redisAddr) > 0 {
+			s.pubSub = pubsub.NewRedisPubSub(redisAddr)
+		}
 	}
 }
 
@@ -65,8 +60,8 @@ func New(opts ...Option) *Service {
 		opt(s)
 	}
 
-	if s.cache == nil {
-		s.cache = cache.NewSimpleCache()
+	if s.pubSub == nil {
+		s.pubSub = pubsub.NewSimpleCache()
 	}
 
 	return s

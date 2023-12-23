@@ -5,24 +5,15 @@ import (
 	"golang.org/x/net/context"
 )
 
-type PubSub interface {
-	Publish(ctx context.Context, channel string, message interface{}) error
-	Subscribe(ctx context.Context, channel string) chan Message
-}
-
 type RedisPubSub struct {
 	rdb redis.UniversalClient
 }
 
-func NewRedisPubSub() PubSub {
+func NewRedisPubSub(addr string) PubSub {
 	return &RedisPubSub{
 		rdb: redis.NewUniversalClient(&redis.UniversalOptions{
-			Addrs: []string{":6379"},
+			Addrs: []string{addr},
 		})}
-}
-
-type Message struct {
-	Text string
 }
 
 func (p *RedisPubSub) Publish(ctx context.Context, channel string, message interface{}) error {

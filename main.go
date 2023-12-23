@@ -15,6 +15,7 @@ var (
 	port         string
 	zbBrokerAddr string
 	zbProcessID  string
+	redisAddr    string
 )
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 	flag.StringVar(&port, "port", ":8080", "Port to listen (prepended by colon), i.e. :8080")
 	flag.StringVar(&zbBrokerAddr, "zeebe-broker-addr", LookupEnvOrString("ZEEBE_BROKER_ADDR", "127.0.0.1:26500"), "Zeebe broker address")
 	flag.StringVar(&zbProcessID, "zeebe-process-id", LookupEnvOrString("ZEEBE_PROCESS_ID", "diagram_1"), "BPMN process ID")
+	flag.StringVar(&redisAddr, "redis-addr", LookupEnvOrString("REDIS_ADDR", ""), "Redis cluster/server address")
 
 	log.SetFormatter(&log.TextFormatter{
 		DisableColors: true,
@@ -43,7 +45,7 @@ func main() {
 	s := service.New(
 		service.WithHttpPort(port),
 		service.WithZeebe(zbBrokerAddr, zbProcessID),
-		service.WithRedis())
+		service.WithRedis(redisAddr))
 
 	s.Start()
 }

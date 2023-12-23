@@ -11,7 +11,7 @@ import (
 func TestRedisPubSub(t *testing.T) {
 	channel := "id-" + uuid.NewString()
 	message := "Success"
-	pubSub := pubsub.NewRedisPubSub()
+	pubSub := pubsub.NewRedisPubSub(":6379")
 	ch := pubSub.Subscribe(context.Background(), channel)
 
 	go func() {
