@@ -3,23 +3,23 @@ package main
 import (
 	"context"
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestRedisPubSub(t *testing.T) {
-	id := "id-123"
-	//message := "Success"
-	ps := pubsub.NewRedisPubSub()
-	//ch := ps.Subscribe(context.Background(), id)
+	channel := "id-" + uuid.NewString()
+	message := "Success"
+	pubSub := pubsub.NewRedisPubSub()
+	ch := pubSub.Subscribe(context.Background(), channel)
 
-	//go func() {
-	err := ps.Publish(context.Background(), id)
-	assert.Nil(t, err)
-	//}()
+	go func() {
+		err := pubSub.Publish(context.Background(), channel, message)
+		assert.Nil(t, err)
+	}()
 
-	//for msg := range ch {
-	//	fmt.Println(msg)
-	//	assert.Equal(t, message, msg)
-	//}
+	received := <-ch
+	assert.Equal(t, message, received.(*redis.Message).Payload)
 }

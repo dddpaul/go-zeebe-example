@@ -6,8 +6,8 @@ import (
 )
 
 type PubSub interface {
-	Publish(context.Context, string) error
-	Subscribe(ctx context.Context, id string) chan interface{}
+	Publish(ctx context.Context, channel string, message interface{}) error
+	Subscribe(ctx context.Context, channel string) chan interface{}
 }
 
 type RedisPubSub struct {
@@ -21,19 +21,18 @@ func NewRedisPubSub() PubSub {
 		})}
 }
 
-func (p *RedisPubSub) Publish(ctx context.Context, id string) error {
-	if err := p.rdb.Publish(ctx, id, "Success").Err(); err != nil {
+func (p *RedisPubSub) Publish(ctx context.Context, channel string, message interface{}) error {
+	if err := p.rdb.Publish(ctx, channel, message).Err(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *RedisPubSub) Subscribe(ctx context.Context, id string) chan interface{} {
+func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) chan interface{} {
 	ch := make(chan interface{}, 1)
+	sub := p.rdb.Subscribe(ctx, channel).Channel(redis.WithChannelSize(1))
 	go func() {
-		for msg := range p.rdb.Subscribe(ctx, id).Channel(redis.WithChannelSize(1)) {
-			ch <- msg.String()
-		}
+		ch <- <-sub
 	}()
 	return ch
 }

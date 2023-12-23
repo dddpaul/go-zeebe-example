@@ -59,7 +59,7 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 	//ch := cache.Get(ctx.Value(logger.APP_ID).(string))
 	//ch <- result["result"]
 
-	err := pubSub.Publish(ctx, ctx.Value(logger.APP_ID).(string))
+	err := pubSub.Publish(ctx, ctx.Value(logger.APP_ID).(string), "Success")
 	if err != nil {
 		logger.Log(ctx, err).WithField(logger.INPUTS, job.Variables).Error("error while publish to redis")
 		return
