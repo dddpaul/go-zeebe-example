@@ -15,13 +15,14 @@ import (
 func Test_RedisPubSub(t *testing.T) {
 	redisAddr, teardown := startTestContainer(t)
 	defer teardown()
+	pubSub := NewRedisPubSub([]string{redisAddr})
 
 	t.Run("should receive all published message", func(t *testing.T) {
 		// given
-		pubSub := NewRedisPubSub([]string{redisAddr})
 		channel := "id-" + uuid.NewString()
 		messages := []string{"Message-1", "Message-2", "Message-3"}
-		ch, _ := pubSub.Subscribe(context.Background(), channel)
+		ch, cleanup := pubSub.Subscribe(context.Background(), channel)
+		defer cleanup(context.Background(), channel)
 
 		// when
 		go func() {

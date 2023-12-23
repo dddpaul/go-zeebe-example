@@ -9,10 +9,10 @@ import (
 )
 
 func Test_LocalPubSub(t *testing.T) {
+	pubSub := NewLocalPubSub()
 
 	t.Run("should receive all published message", func(t *testing.T) {
 		// given
-		pubSub := NewLocalPubSub()
 		channel := "id-" + uuid.NewString()
 		messages := []string{"Message-1", "Message-2", "Message-3"}
 		ch, cleanup := pubSub.Subscribe(context.Background(), channel)
