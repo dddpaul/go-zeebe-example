@@ -61,7 +61,7 @@ func New(opts ...Option) *Service {
 	}
 
 	if s.pubSub == nil {
-		s.pubSub = pubsub.NewSimpleCache()
+		s.pubSub = pubsub.NewLocalPubSub()
 	}
 
 	return s
