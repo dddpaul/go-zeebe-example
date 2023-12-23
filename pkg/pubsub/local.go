@@ -6,26 +6,26 @@ import (
 	"sync"
 )
 
-type localPubSub struct {
+type LocalPubSub struct {
 	cache map[string]chan interface{}
 	mu    sync.Mutex
 }
 
 func NewLocalPubSub() PubSub {
-	return &localPubSub{
+	return &LocalPubSub{
 		cache: make(map[string]chan interface{}),
 	}
 }
 
-func (c *localPubSub) Publish(ctx context.Context, channel string, message interface{}) error {
-	ch := c.get(channel)
+func (p *LocalPubSub) Publish(ctx context.Context, channel string, message interface{}) error {
+	ch := p.get(channel)
 	ch <- message
 	logger.Log(ctx, nil).WithField(logger.MESSAGE, message).Debugf("message published")
 	return nil
 }
 
-func (c *localPubSub) Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string)) {
-	ch := c.get(channel)
+func (p *LocalPubSub) Subscribe(ctx context.Context, channel string) (chan Message, func(ctx context.Context, channel string)) {
+	ch := p.get(channel)
 	result := make(chan Message, 1)
 	go func() {
 		for msg := range ch {
@@ -36,30 +36,30 @@ func (c *localPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 		}
 		close(result)
 	}()
-	return result, c.del
+	return result, p.del
 }
 
-func (c *localPubSub) Close(ctx context.Context, channel string) error {
-	ch := c.get(channel)
+func (p *LocalPubSub) Close(ctx context.Context, channel string) error {
+	ch := p.get(channel)
 	close(ch)
 	return nil
 }
 
-func (c *localPubSub) get(channel string) chan interface{} {
+func (p *LocalPubSub) get(channel string) chan interface{} {
 	var result chan interface{}
-	c.mu.Lock()
-	if ch, ok := c.cache[channel]; ok {
+	p.mu.Lock()
+	if ch, ok := p.cache[channel]; ok {
 		result = ch
 	} else {
 		result = make(chan interface{}, 1)
-		c.cache[channel] = result
+		p.cache[channel] = result
 	}
-	defer c.mu.Unlock()
+	defer p.mu.Unlock()
 	return result
 }
 
-func (c *localPubSub) del(ctx context.Context, channel string) {
-	c.mu.Lock()
-	delete(c.cache, channel)
-	defer c.mu.Unlock()
+func (p *LocalPubSub) del(ctx context.Context, channel string) {
+	p.mu.Lock()
+	delete(p.cache, channel)
+	defer p.mu.Unlock()
 }
