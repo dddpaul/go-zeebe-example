@@ -54,8 +54,8 @@ func (p *RedisPubSub) Close(ctx context.Context, channel string) error {
 func (p *RedisPubSub) get(ctx context.Context, channel string) *redis.PubSub {
 	var result *redis.PubSub
 	p.mu.Lock()
-	if ch, ok := p.cache[channel]; ok {
-		result = ch
+	if pubSub, ok := p.cache[channel]; ok {
+		result = pubSub
 	} else {
 		result = p.rdb.Subscribe(ctx, channel)
 		p.cache[channel] = result
