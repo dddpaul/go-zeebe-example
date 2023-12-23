@@ -18,33 +18,33 @@ func NewSimpleCache() PubSub {
 }
 
 func (c *SimpleCache) Publish(ctx context.Context, channel string, message interface{}) error {
-	ch := c.newChannel(channel)
+	ch := c.get(channel)
 	ch <- message
 	logger.Log(ctx, nil).WithField(logger.MESSAGE, message).Debugf("message published")
 	return nil
 }
 
 func (c *SimpleCache) Subscribe(ctx context.Context, channel string) chan Message {
-	ch := c.newChannel(channel)
-	ch1 := make(chan Message, 1)
+	ch := c.get(channel)
+	result := make(chan Message, 1)
 	go func() {
 		if txt, ok := (<-ch).(string); ok {
 			logger.Log(ctx, nil).WithField(logger.MESSAGE, txt).Debugf("message received")
-			ch1 <- Message{Text: txt}
+			result <- Message{Text: txt}
 		}
 	}()
-	return ch1
+	return result
 }
 
-func (c *SimpleCache) newChannel(channel string) chan interface{} {
-	var ch chan interface{}
+func (c *SimpleCache) get(channel string) chan interface{} {
+	var result chan interface{}
 	c.mu.Lock()
-	if ch1, ok := c.cache[channel]; ok {
-		ch = ch1
+	if ch, ok := c.cache[channel]; ok {
+		result = ch
 	} else {
-		ch = make(chan interface{}, 1)
-		c.cache[channel] = ch
+		result = make(chan interface{}, 1)
+		c.cache[channel] = result
 	}
 	c.mu.Unlock()
-	return ch
+	return result
 }
