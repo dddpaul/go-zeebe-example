@@ -28,15 +28,16 @@ func NewClient(addr string) zbc.Client {
 	return client
 }
 
-func DeployProcessDefinition(client zbc.Client, processID string) {
+func DeployProcessDefinition(client zbc.Client, processID string) error {
 	ctx := context.Background()
 	response, err := client.NewDeployResourceCommand().
 		AddResourceFile(processID + ".bpmn").
 		Send(ctx)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	log.Printf("Process definitions deployed: %v", response.GetDeployments())
+	return nil
 }
 
 func StartProcess(ctx context.Context, zbClient zbc.Client, zbProcessID, id string) (int64, error) {
