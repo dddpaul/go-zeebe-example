@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/dddpaul/go-zeebe-example/pkg/service"
+	"github.com/google/uuid"
 	"github.com/phayes/freeport"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	wait "github.com/testcontainers/testcontainers-go/wait"
@@ -21,6 +24,9 @@ func Test_ZeebeStart(t *testing.T) {
 	zbBrokerAddr, teardown := startTestContainer(t)
 	defer teardown()
 
+	// TODO: Replace with wait-for-port
+	time.Sleep(3 * time.Second)
+
 	zbProcessID := "diagram_1"
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
@@ -30,8 +36,8 @@ func Test_ZeebeStart(t *testing.T) {
 		service.WithZeebe(zbBrokerAddr, zbProcessID))
 	go s.Start()
 
-	// TODO: Replace with wait-for-port
-	time.Sleep(5 * time.Second)
+	// TODO: Replace with wait-for-port and deployed process
+	time.Sleep(3 * time.Second)
 
 	//t.Run("should deploy process", func(t *testing.T) {
 	//	// given
@@ -47,15 +53,34 @@ func Test_ZeebeStart(t *testing.T) {
 	t.Run("should create process on /sync call", func(t *testing.T) {
 		// given
 		client := http.DefaultClient
-		url := "http://127.0.0.1:" + strconv.Itoa(port) + "/sync"
-		req, err := http.NewRequest("POST", url, nil)
-		require.NoError(t, err)
+		id := uuid.NewString()
+		message := "TEST"
 
 		// when
-		resp, err := client.Do(req)
+		url := "http://127.0.0.1:" + strconv.Itoa(port) + "/sync"
+		req, _ := http.NewRequest("POST", url, nil)
+		req.Header.Set("X-APP-ID", id)
+		var resp *http.Response
+		done := make(chan bool)
+		go func() {
+			resp, err = client.Do(req)
+			require.NoError(t, err)
+			done <- true
+		}()
+
+		// TODO: Replace with wait-for-log
+		time.Sleep(1 * time.Second)
+
+		// and
+		url = "http://127.0.0.1:" + strconv.Itoa(port) + "/callback"
+		req, _ = http.NewRequest("POST", url, bytes.NewReader([]byte("{ \"message\" : \""+message+"\" }")))
+		req.Header.Set("X-APP-ID", id)
+		_, err = client.Do(req)
 		require.NoError(t, err)
 
 		// then
+		<-done
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		fmt.Println(resp)
 	})
 
