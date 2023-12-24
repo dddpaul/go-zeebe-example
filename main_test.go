@@ -3,29 +3,64 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
+	"github.com/dddpaul/go-zeebe-example/pkg/service"
+	"github.com/phayes/freeport"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	wait "github.com/testcontainers/testcontainers-go/wait"
+	"net/http"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func Test_ZeebeStart(t *testing.T) {
+	log.SetLevel(log.DebugLevel)
+
 	zbBrokerAddr, teardown := startTestContainer(t)
 	defer teardown()
 
-	t.Run("should deploy process", func(t *testing.T) {
+	zbProcessID := "diagram_1"
+	port, err := freeport.GetFreePort()
+	require.NoError(t, err)
+
+	s := service.New(
+		service.WithHttpPort(":"+strconv.Itoa(port)),
+		service.WithZeebe(zbBrokerAddr, zbProcessID))
+	go s.Start()
+
+	// TODO: Replace with wait-for-port
+	time.Sleep(5 * time.Second)
+
+	//t.Run("should deploy process", func(t *testing.T) {
+	//	// given
+	//	zbClient := zeebe.NewClient(zbBrokerAddr)
+	//
+	//	// when
+	//	err := zeebe.DeployProcessDefinition(zbClient, zbProcessID)
+	//
+	//	// then
+	//	require.NoError(t, err)
+	//})
+
+	t.Run("should create process on /sync call", func(t *testing.T) {
 		// given
-		zbClient := zeebe.NewClient(zbBrokerAddr)
-		zbProcessID := "diagram_1"
+		client := http.DefaultClient
+		url := "http://127.0.0.1:" + strconv.Itoa(port) + "/sync"
+		req, err := http.NewRequest("POST", url, nil)
+		require.NoError(t, err)
 
 		// when
-		err := zeebe.DeployProcessDefinition(zbClient, zbProcessID)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
 
 		// then
-		require.NoError(t, err)
+		fmt.Println(resp)
 	})
+
+	// TODO: Replace with wait-process-end
+	time.Sleep(3 * time.Second)
 }
 
 func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {

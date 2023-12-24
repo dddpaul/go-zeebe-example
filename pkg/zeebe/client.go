@@ -31,7 +31,7 @@ func NewClient(addr string) zbc.Client {
 func DeployProcessDefinition(client zbc.Client, processID string) error {
 	ctx := context.Background()
 	response, err := client.NewDeployResourceCommand().
-		AddResourceFile(processID + ".bpmn").
+		AddResourceFile("processes/" + processID + ".bpmn").
 		Send(ctx)
 	if err != nil {
 		return err

@@ -6,6 +6,7 @@ require (
 	github.com/camunda/zeebe/clients/go/v8 v8.3.4
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/google/uuid v1.4.0
+	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/redis/go-redis/v9 v9.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
