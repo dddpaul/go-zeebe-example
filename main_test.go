@@ -22,6 +22,7 @@ import (
 
 func Test_Main(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
+	client := http.DefaultClient
 
 	zbBrokerAddr, teardown := startTestContainer(t, false)
 	defer teardown()
@@ -42,12 +43,41 @@ func Test_Main(t *testing.T) {
 
 	t.Run("should create process on /sync call and finish it on /callback call", func(t *testing.T) {
 		// given
-		client := http.DefaultClient
 		id := uuid.NewString()
 		message := "TEST"
 
 		// when
 		req := newPostRequest(t, appHostAndPort, service.SYNC_PATH, nil, id)
+		var resp *http.Response
+		done := make(chan bool)
+		go func() {
+			resp, err = client.Do(req)
+			require.NoError(t, err)
+			done <- true
+		}()
+
+		// and
+		cbBody := strings.NewReader("{ \"message\" : \"" + message + "\" }")
+		cbReq := newPostRequest(t, appHostAndPort, service.CALLBACK_PATH, cbBody, id)
+		cbResp, err := client.Do(cbReq)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusNoContent, cbResp.StatusCode)
+
+		// then
+		<-done
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		fmt.Println(string(body))
+	})
+
+	t.Run("should create process on /sync-with-result call and finish it on /callback call", func(t *testing.T) {
+		// given
+		id := uuid.NewString()
+		message := "TEST"
+
+		// when
+		req := newPostRequest(t, appHostAndPort, service.SYNC_WITH_RESULT_PATH, nil, id)
 		var resp *http.Response
 		done := make(chan bool)
 		go func() {
