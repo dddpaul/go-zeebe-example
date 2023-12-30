@@ -22,7 +22,7 @@ import (
 func Test_Main(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
-	zbBrokerAddr, teardown := startTestContainer(t, true)
+	zbBrokerAddr, teardown := startTestContainer(t, false)
 	defer teardown()
 
 	port, err := freeport.GetFreePort()
@@ -119,6 +119,10 @@ func startTestContainer(t *testing.T, loggingEnabled bool) (hostAndPort string, 
 		err = container.StartLogProducer(ctx)
 		require.NoError(t, err)
 	}
+
+	// To pass "Expected to execute command on partition 1, but either it does not exist, or the gateway is not yet aware of it"
+	// Seems like there slight window of unavailability after "Partition-1 recovered, marking it as healthy" log message
+	time.Sleep(1 * time.Second)
 
 	return fmt.Sprintf("%s:%s", host, port.Port()), func() {
 		if err := container.Terminate(ctx); err != nil {
