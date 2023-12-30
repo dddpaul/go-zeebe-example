@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	wait_for "github.com/antelman107/net-wait-go/wait"
+	wait "github.com/antelman107/net-wait-go/wait"
 	"github.com/dddpaul/go-zeebe-example/pkg/service"
 	"github.com/google/uuid"
 	"github.com/phayes/freeport"
@@ -12,9 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
+	waitFor "github.com/testcontainers/testcontainers-go/wait"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,7 +36,7 @@ func Test_Main(t *testing.T) {
 		service.WithZeebe(zbBrokerAddr, zbProcessID))
 	go s.Start()
 
-	if !wait_for.New(wait_for.WithDeadline(5 * time.Second)).Do([]string{appHostAndPort}) {
+	if !wait.New(wait.WithDeadline(5 * time.Second)).Do([]string{appHostAndPort}) {
 		panic("Application failed to start")
 	}
 
@@ -46,9 +47,7 @@ func Test_Main(t *testing.T) {
 		message := "TEST"
 
 		// when
-		url := "http://127.0.0.1:" + strconv.Itoa(port) + "/sync"
-		req, _ := http.NewRequest("POST", url, nil)
-		req.Header.Set("X-APP-ID", id)
+		req := newPostRequest(t, appHostAndPort, service.SYNC_PATH, nil, id)
 		var resp *http.Response
 		done := make(chan bool)
 		go func() {
@@ -58,17 +57,18 @@ func Test_Main(t *testing.T) {
 		}()
 
 		// and
-		url = "http://127.0.0.1:" + strconv.Itoa(port) + "/callback"
-		cbReq, _ := http.NewRequest("POST", url, bytes.NewReader([]byte("{ \"message\" : \""+message+"\" }")))
-		cbReq.Header.Set("X-APP-ID", id)
-		resp, err = client.Do(cbReq)
+		cbBody := strings.NewReader("{ \"message\" : \"" + message + "\" }")
+		cbReq := newPostRequest(t, appHostAndPort, service.CALLBACK_PATH, cbBody, id)
+		cbResp, err := client.Do(cbReq)
 		require.NoError(t, err)
-		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+		assert.Equal(t, http.StatusNoContent, cbResp.StatusCode)
 
 		// then
 		<-done
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		fmt.Println(resp)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		fmt.Println(string(body))
 	})
 }
 
@@ -96,7 +96,7 @@ func startTestContainer(t *testing.T, loggingEnabled bool) (hostAndPort string, 
 	req := testcontainers.ContainerRequest{
 		Image:        "camunda/zeebe:8.3.3",
 		ExposedPorts: []string{"26500/tcp"},
-		WaitingFor:   wait.NewLogStrategy("Partition-1 recovered, marking it as healthy").WithStartupTimeout(time.Second * 60),
+		WaitingFor:   waitFor.NewLogStrategy("Partition-1 recovered, marking it as healthy").WithStartupTimeout(time.Second * 60),
 		Env: map[string]string{
 			"ZEEBE_BROKER_GATEWAY_ENABLE":      "true",
 			"ZEEBE_BROKER_CLUSTER_CLUSTERSIZE": "1",
@@ -129,4 +129,25 @@ func startTestContainer(t *testing.T, loggingEnabled bool) (hostAndPort string, 
 			panic(err)
 		}
 	}
+}
+
+func newPostRequest(t *testing.T, appHostAndPort string, path string, body io.Reader, header string) *http.Request {
+	url := "http://" + singleJoiningSlash(appHostAndPort, path)
+	req, err := http.NewRequest("POST", url, body)
+	require.NoError(t, err)
+	req.Header.Set("X-APP-ID", header)
+	return req
+}
+
+// Taken from net/http/httputil/reverseproxy.go
+func singleJoiningSlash(a, b string) string {
+	aslash := strings.HasSuffix(a, "/")
+	bslash := strings.HasPrefix(b, "/")
+	switch {
+	case aslash && bslash:
+		return a + b[1:]
+	case !aslash && !bslash:
+		return a + "/" + b
+	}
+	return a + b
 }

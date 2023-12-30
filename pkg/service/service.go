@@ -11,6 +11,12 @@ import (
 	"strings"
 )
 
+const (
+	SYNC_PATH             = "/sync"
+	CALLBACK_PATH         = "/callback"
+	SYNC_WITH_RESULT_PATH = "/sync-with-result"
+)
+
 type Service struct {
 	zbClient    zbc.Client
 	zbProcessID string
@@ -65,13 +71,13 @@ func (s *Service) Start() {
 	zeebe.StartJobWorkers(s.zbClient, s.pubSub)
 
 	router := chi.NewRouter()
-	router.Post("/sync", func(w http.ResponseWriter, r *http.Request) {
+	router.Post(SYNC_PATH, func(w http.ResponseWriter, r *http.Request) {
 		handlers.Sync(s.zbClient, s.zbProcessID, s.pubSub, w, r)
 	})
-	router.Post("/sync-with-result", func(w http.ResponseWriter, r *http.Request) {
+	router.Post(SYNC_WITH_RESULT_PATH, func(w http.ResponseWriter, r *http.Request) {
 		handlers.SyncWithResult(s.zbClient, s.zbProcessID, w, r)
 	})
-	router.Post("/callback", func(w http.ResponseWriter, r *http.Request) {
+	router.Post(CALLBACK_PATH, func(w http.ResponseWriter, r *http.Request) {
 		handlers.Callback(s.zbClient, w, r)
 	})
 
