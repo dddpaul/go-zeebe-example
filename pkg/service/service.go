@@ -59,8 +59,10 @@ func (s *Service) Start() {
 	defer s.close()
 
 	// Deploy process and start job workers
-	zeebe.DeployProcessDefinition(s.zbClient, s.zbProcessID)
-	go zeebe.StartJobWorkers(s.zbClient, s.pubSub)
+	if err := zeebe.DeployProcessDefinition(s.zbClient, s.zbProcessID); err != nil {
+		panic(err)
+	}
+	zeebe.StartJobWorkers(s.zbClient, s.pubSub)
 
 	router := chi.NewRouter()
 	router.Post("/sync", func(w http.ResponseWriter, r *http.Request) {

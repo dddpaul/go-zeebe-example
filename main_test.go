@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	wait_for "github.com/antelman107/net-wait-go/wait"
 	"github.com/dddpaul/go-zeebe-example/pkg/service"
 	"github.com/google/uuid"
 	"github.com/phayes/freeport"
@@ -18,39 +19,27 @@ import (
 	"time"
 )
 
-func Test_ZeebeStart(t *testing.T) {
+func Test_Main(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
 	zbBrokerAddr, teardown := startTestContainer(t)
 	defer teardown()
 
-	// TODO: Replace with wait-for-port
-	time.Sleep(3 * time.Second)
-
-	zbProcessID := "diagram_1"
 	port, err := freeport.GetFreePort()
 	require.NoError(t, err)
+	appHostAndPort := "127.0.0.1:" + strconv.Itoa(port)
 
+	zbProcessID := "diagram_1"
 	s := service.New(
 		service.WithHttpPort(":"+strconv.Itoa(port)),
 		service.WithZeebe(zbBrokerAddr, zbProcessID))
 	go s.Start()
 
-	// TODO: Replace with wait-for-port and deployed process
-	time.Sleep(3 * time.Second)
+	if !wait_for.New(wait_for.WithDeadline(5 * time.Second)).Do([]string{appHostAndPort}) {
+		panic("Application failed to start")
+	}
 
-	//t.Run("should deploy process", func(t *testing.T) {
-	//	// given
-	//	zbClient := zeebe.NewClient(zbBrokerAddr)
-	//
-	//	// when
-	//	err := zeebe.DeployProcessDefinition(zbClient, zbProcessID)
-	//
-	//	// then
-	//	require.NoError(t, err)
-	//})
-
-	t.Run("should create process on /sync call", func(t *testing.T) {
+	t.Run("should create process on /sync call and finish it on /callback call", func(t *testing.T) {
 		// given
 		client := http.DefaultClient
 		id := uuid.NewString()
@@ -68,25 +57,31 @@ func Test_ZeebeStart(t *testing.T) {
 			done <- true
 		}()
 
-		// TODO: Replace with wait-for-log
-		time.Sleep(1 * time.Second)
-
 		// and
 		url = "http://127.0.0.1:" + strconv.Itoa(port) + "/callback"
-		req, _ = http.NewRequest("POST", url, bytes.NewReader([]byte("{ \"message\" : \""+message+"\" }")))
-		req.Header.Set("X-APP-ID", id)
-		_, err = client.Do(req)
+		cbReq, _ := http.NewRequest("POST", url, bytes.NewReader([]byte("{ \"message\" : \""+message+"\" }")))
+		cbReq.Header.Set("X-APP-ID", id)
+		resp, err = client.Do(cbReq)
 		require.NoError(t, err)
+		assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 		// then
 		<-done
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		fmt.Println(resp)
 	})
-
-	// TODO: Replace with wait-process-end
-	time.Sleep(3 * time.Second)
 }
+
+//t.Run("should deploy process", func(t *testing.T) {
+//	// given
+//	zbClient := zeebe.NewClient(zbBrokerAddr)
+//
+//	// when
+//	err := zeebe.DeployProcessDefinition(zbClient, zbProcessID)
+//
+//	// then
+//	require.NoError(t, err)
+//})
 
 func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {
 	ctx := context.Background()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 // BPMN input and output variables
@@ -68,10 +69,12 @@ func StartProcessWithResult(ctx context.Context, zbClient zbc.Client, zbProcessI
 	return resp.GetProcessInstanceKey(), resp.GetVariables(), nil
 }
 
+// TTL is set to allow Callback be executed before Sync (useful for tests)
 func PublishCallbackMessage(ctx context.Context, zbClient zbc.Client, id, message string) error {
 	cmd, _ := zbClient.NewPublishMessageCommand().
 		MessageName(MESSAGE_CALLBACK).
 		CorrelationKey(id).
+		TimeToLive(10 * time.Second).
 		VariablesFromMap(map[string]interface{}{
 			MESSAGE: message,
 		})
