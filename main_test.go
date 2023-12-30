@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	wait "github.com/testcontainers/testcontainers-go/wait"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"net/http"
 	"strconv"
 	"testing"
@@ -22,7 +22,7 @@ import (
 func Test_Main(t *testing.T) {
 	log.SetLevel(log.DebugLevel)
 
-	zbBrokerAddr, teardown := startTestContainer(t)
+	zbBrokerAddr, teardown := startTestContainer(t, true)
 	defer teardown()
 
 	port, err := freeport.GetFreePort()
@@ -83,7 +83,14 @@ func Test_Main(t *testing.T) {
 //	require.NoError(t, err)
 //})
 
-func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {
+type ContainerLogConsumer struct {
+}
+
+func (c *ContainerLogConsumer) Accept(l testcontainers.Log) {
+	fmt.Print(string(l.Content))
+}
+
+func startTestContainer(t *testing.T, loggingEnabled bool) (hostAndPort string, teardown func()) {
 	ctx := context.Background()
 
 	req := testcontainers.ContainerRequest{
@@ -106,6 +113,12 @@ func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {
 
 	port, err := container.MappedPort(ctx, "26500")
 	require.NoError(t, err)
+
+	if loggingEnabled {
+		container.FollowOutput(&ContainerLogConsumer{})
+		err = container.StartLogProducer(ctx)
+		require.NoError(t, err)
+	}
 
 	return fmt.Sprintf("%s:%s", host, port.Port()), func() {
 		if err := container.Terminate(ctx); err != nil {
