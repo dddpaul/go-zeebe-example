@@ -1,17 +1,18 @@
 module github.com/dddpaul/go-zeebe-example
 
-go 1.21.4
+go 1.21
 
 require (
+	github.com/antelman107/net-wait-go v0.0.0-20220211074630-12d8a944b87d
 	github.com/camunda/zeebe/clients/go/v8 v8.3.4
 	github.com/go-chi/chi/v5 v5.0.11
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/redis/go-redis/v9 v9.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.27.0
-	golang.org/x/net v0.17.0
+	golang.org/x/net v0.19.0
 )
 
 require (
@@ -19,7 +20,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
-	github.com/antelman107/net-wait-go v0.0.0-20220211074630-12d8a944b87d // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -60,7 +60,7 @@ require (
 	golang.org/x/mod v0.11.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/tools v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
