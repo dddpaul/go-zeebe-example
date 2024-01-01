@@ -2,8 +2,9 @@ package pubsub
 
 import (
 	"context"
-	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"sync"
+
+	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 )
 
 type LocalPubSub struct {
@@ -28,13 +29,22 @@ func (p *LocalPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	ch := p.get(channel)
 	result := make(chan Message, 1)
 	go func() {
-		for msg := range ch {
-			if txt, ok := msg.(string); ok {
-				logger.Log(ctx, nil).WithField(logger.MESSAGE, txt).Debugf("message received")
-				result <- Message{Text: txt}
+		for {
+			select {
+			case <-ctx.Done():
+				close(result)
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					close(result)
+					return
+				}
+				if txt, ok := msg.(string); ok {
+					logger.Log(ctx, nil).WithField(logger.MESSAGE, txt).Debugf("message received")
+					result <- Message{Text: txt}
+				}
 			}
 		}
-		close(result)
 	}()
 	return result, p.del
 }

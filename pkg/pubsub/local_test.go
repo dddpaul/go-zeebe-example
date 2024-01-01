@@ -2,10 +2,11 @@ package pubsub
 
 import (
 	"context"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test_LocalPubSub(t *testing.T) {
@@ -34,5 +35,31 @@ func Test_LocalPubSub(t *testing.T) {
 			assert.Equal(t, messages[i], received.Text)
 			i++
 		}
+	})
+
+	t.Run("should stop subscribe when context is cancelled", func(t *testing.T) {
+		// given
+		ctx, cancel := context.WithCancel(context.Background())
+		channel := "id-" + uuid.NewString()
+		message := "Message-1"
+		ch, cleanup := pubSub.Subscribe(ctx, channel)
+		defer cleanup(ctx, channel)
+
+		// when
+		err := pubSub.Publish(ctx, channel, message)
+		require.NoError(t, err)
+		ready := make(chan bool)
+		go func() {
+			<-ready
+			cancel()
+		}()
+		var received string
+		for msg := range ch {
+			received = msg.Text
+			ready <- true
+		}
+
+		// then
+		assert.Equal(t, message, received)
 	})
 }

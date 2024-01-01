@@ -3,13 +3,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
-	"io"
-	"net/http"
-	"time"
 )
 
 type StartProcessResponse struct {
