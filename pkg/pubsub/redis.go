@@ -33,10 +33,19 @@ func (p *RedisPubSub) Subscribe(ctx context.Context, channel string) (chan Messa
 	result := make(chan Message, size)
 	ch := p.get(ctx, channel).Channel(redis.WithChannelSize(size))
 	go func() {
-		for msg := range ch {
-			result <- Message{Text: msg.Payload}
+		for {
+			select {
+			case <-ctx.Done():
+				close(result)
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					close(result)
+					return
+				}
+				result <- Message{Text: msg.Payload}
+			}
 		}
-		close(result)
 	}()
 	return result, p.del
 }

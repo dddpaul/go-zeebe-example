@@ -41,6 +41,32 @@ func Test_RedisPubSub(t *testing.T) {
 			i++
 		}
 	})
+
+	t.Run("should stop subscribe when context is cancelled", func(t *testing.T) {
+		// given
+		ctx, cancel := context.WithCancel(context.Background())
+		channel := "id-" + uuid.NewString()
+		message := "Message-1"
+		ch, cleanup := pubSub.Subscribe(ctx, channel)
+		defer cleanup(ctx, channel)
+
+		// when
+		err := pubSub.Publish(ctx, channel, message)
+		require.NoError(t, err)
+		ready := make(chan bool)
+		go func() {
+			<-ready
+			cancel()
+		}()
+		var received string
+		for msg := range ch {
+			received = msg.Text
+			ready <- true
+		}
+
+		// then
+		assert.Equal(t, message, received)
+	})
 }
 
 func startTestContainer(t *testing.T) (hostAndPort string, teardown func()) {
