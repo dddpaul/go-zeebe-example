@@ -2,25 +2,41 @@ package zeebe
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/entities"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
+	"io"
+	"net/http"
 	"time"
 )
 
 const (
-	SERVICE_TASK = "service-task"
-	FINAL_TASK   = "final-task"
+	SERVICE_TASK       = "service-task"
+	FINAL_TASK         = "final-task"
+	RISK_LEVEL_TASK    = "risk-level"
+	LOOP_SETTINGS_TASK = "loop-settings"
+	APPROVE_TASK       = "approve-app"
+	REJECT_TASK        = "reject-app"
 )
 
 var pubSub pubsub.PubSub
+
+type LoopSettings struct {
+	Retries int    `json:"retries"`
+	Timeout string `json:"timeout"`
+}
 
 func StartJobWorkers(client zbc.Client, ps pubsub.PubSub) {
 	pubSub = ps
 	go startJobWorker(client, SERVICE_TASK, handleJob)
 	go startJobWorker(client, FINAL_TASK, handleFinalJob)
+	go startJobWorker(client, RISK_LEVEL_TASK, handleRiskLevelJob)
+	go startJobWorker(client, LOOP_SETTINGS_TASK, handleLoopSettingsJob)
+	go startJobWorker(client, APPROVE_TASK, handleApproveAppJob)
+	go startJobWorker(client, REJECT_TASK, handleRejectAppJob)
 }
 
 func startJobWorker(client zbc.Client, jobType string, handler func(client worker.JobClient, job entities.Job)) {
@@ -47,7 +63,7 @@ func handleJob(client worker.JobClient, job entities.Job) {
 func handleFinalJob(client worker.JobClient, job entities.Job) {
 	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
 	defer cancel()
-	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("job activated")
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("final job activated")
 
 	result := map[string]interface{}{
 		"result": "final task success",
@@ -60,6 +76,56 @@ func handleFinalJob(client worker.JobClient, job entities.Job) {
 		logger.Log(ctx, err).WithField(logger.INPUTS, job.Variables).Error("error while publish")
 		return
 	}
+}
+
+func handleRiskLevelJob(client worker.JobClient, job entities.Job) {
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("risk level job activated")
+	completeJob(ctx, client, job, map[string]interface{}{})
+}
+
+func handleLoopSettingsJob(client worker.JobClient, job entities.Job) {
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("loop settings job activated")
+
+	loopSettings := LoopSettings{
+		Retries: 1,
+		Timeout: "20s",
+	}
+
+	resp, err := http.Get("http://192.168.0.100:10000/params.json")
+	if err != nil {
+		logger.Log(ctx, err).Error("Failed to fetch loop settings")
+	} else {
+		body, _ := io.ReadAll(resp.Body)
+		err = json.Unmarshal(body, &loopSettings)
+		if err != nil {
+			logger.Log(ctx, err).Error("Failed to unmarshal loop settings")
+		}
+	}
+
+	result := map[string]interface{}{
+		"retries": loopSettings.Retries,
+		"timeout": loopSettings.Timeout,
+	}
+
+	completeJob(ctx, client, job, result)
+}
+
+func handleApproveAppJob(client worker.JobClient, job entities.Job) {
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("approve job activated")
+	completeJob(ctx, client, job, map[string]interface{}{})
+}
+
+func handleRejectAppJob(client worker.JobClient, job entities.Job) {
+	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
+	defer cancel()
+	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("reject job activated")
+	completeJob(ctx, client, job, map[string]interface{}{})
 }
 
 func completeJob(ctx context.Context, client worker.JobClient, job entities.Job, result map[string]interface{}) {
