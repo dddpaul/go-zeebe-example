@@ -20,6 +20,10 @@ var (
 		Code:    "RISK_LEVEL_ERROR",
 		Message: "Some error just happened: %s",
 	}
+	ChanceUnacceptableError = ZeebeError{
+		Code:    "CHANCE_UNACCEPTABLE_ERROR",
+		Message: "Chance in unacceptable: %s",
+	}
 )
 
 // ZeebeBpmnError represents an error that can be thrown within a Zeebe BPMN process.
@@ -35,10 +39,10 @@ func (z ZeebeBpmnError) Error() string {
 }
 
 // NewZeebeBpmnError constructs a new ZeebeBpmnError
-func NewZeebeBpmnError(z ZeebeError, variables map[string]interface{}) ZeebeBpmnError {
+func NewZeebeBpmnError(z ZeebeError, args ...interface{}) ZeebeBpmnError {
 	return ZeebeBpmnError{
 		Code:      z.Code,
-		Message:   z.Message,
-		Variables: variables,
+		Message:   fmt.Sprintf(z.Message, args),
+		Variables: make(map[string]interface{}),
 	}
 }

@@ -3,6 +3,7 @@ package zeebe
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/entities"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/worker"
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
@@ -10,6 +11,9 @@ import (
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"io"
 	"net/http"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -83,7 +87,25 @@ func handleRiskLevelJob(client worker.JobClient, job entities.Job) {
 	defer cancel()
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("risk level job activated")
 
-	completeJob(ctx, client, job, map[string]interface{}{})
+	s, err := extractStringVar(job, "chance")
+	if err != nil {
+		throwErrorJob(ctx, client, job, NewZeebeBpmnError(RiskLevelError, err))
+	}
+
+	chance, err := strconv.Atoi(s)
+	if err != nil {
+		throwErrorJob(ctx, client, job, NewZeebeBpmnError(RiskLevelError, err))
+	}
+
+	if !slices.Contains(RiskLevels(), chance) {
+		throwErrorJob(ctx, client, job, NewZeebeBpmnError(ChanceUnacceptableError, err))
+	}
+
+	result := map[string]interface{}{
+		"riskLevel": strings.ToLower(RiskLevel(chance).GetString()),
+	}
+
+	completeJob(ctx, client, job, result)
 }
 
 func handleLoopSettingsJob(client worker.JobClient, job entities.Job) {
@@ -161,7 +183,19 @@ func throwErrorJob(ctx context.Context, client worker.JobClient, job entities.Jo
 }
 
 func newContext(job entities.Job) context.Context {
-	vars, _ := job.GetVariablesAsMap()
-	ctx := context.WithValue(context.Background(), logger.APP_ID, vars[APP_ID].(string))
+	ctx := context.Background()
+	if s, err := extractStringVar(job, APP_ID); err != nil {
+		ctx = context.WithValue(ctx, logger.APP_ID, s)
+	}
 	return context.WithValue(ctx, logger.JOB_TYPE, job.Type)
+}
+
+func extractStringVar(job entities.Job, name string) (string, error) {
+	vars, _ := job.GetVariablesAsMap()
+	if v, ok := vars[name]; ok {
+		if s, ok := v.(string); ok {
+			return s, nil
+		}
+	}
+	return "", fmt.Errorf("failed to extract '%s' field from job vars: %s", name, job.Variables)
 }
