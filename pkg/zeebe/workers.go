@@ -82,6 +82,7 @@ func handleRiskLevelJob(client worker.JobClient, job entities.Job) {
 	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
 	defer cancel()
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("risk level job activated")
+
 	completeJob(ctx, client, job, map[string]interface{}{})
 }
 
@@ -136,6 +137,27 @@ func completeJob(ctx context.Context, client worker.JobClient, job entities.Job,
 		logger.Log(ctx, err).Errorf("error")
 	}
 	logger.Log(ctx, nil).WithField(logger.OUTPUTS, result).Debugf("job completed")
+}
+
+func failJob(ctx context.Context, client worker.JobClient, job entities.Job, e ZeebeBpmnError) {
+	req := client.NewFailJobCommand().
+		JobKey(job.GetKey()).
+		Retries(job.Retries - 1).
+		ErrorMessage(e.Message)
+	if _, err := req.Send(ctx); err != nil {
+		logger.Log(ctx, err).Errorf("error")
+	}
+	logger.Log(ctx, nil).Debugf("job failed")
+}
+
+func throwErrorJob(ctx context.Context, client worker.JobClient, job entities.Job, e ZeebeBpmnError) {
+	req := client.NewThrowErrorCommand().
+		JobKey(job.GetKey()).
+		ErrorCode(e.Code)
+	if _, err := req.Send(ctx); err != nil {
+		logger.Log(ctx, err).Errorf("error")
+	}
+	logger.Log(ctx, nil).Debugf("job failed")
 }
 
 func newContext(job entities.Job) context.Context {
