@@ -15,6 +15,7 @@ const (
 	SYNC_PATH             = "/sync"
 	CALLBACK_PATH         = "/callback"
 	SYNC_WITH_RESULT_PATH = "/sync-with-result"
+	STATS_PATH            = "/stats"
 )
 
 type Service struct {
@@ -79,6 +80,9 @@ func (s *Service) Start() {
 	})
 	router.Post(CALLBACK_PATH, func(w http.ResponseWriter, r *http.Request) {
 		handlers.Callback(s.zbClient, w, r)
+	})
+	router.Get(STATS_PATH, func(w http.ResponseWriter, r *http.Request) {
+		handlers.Stats(w, r)
 	})
 
 	err := http.ListenAndServe(s.port, logger.NewMiddleware(router))

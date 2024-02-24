@@ -9,6 +9,7 @@ import (
 	"github.com/camunda/zeebe/clients/go/v8/pkg/zbc"
 	"github.com/dddpaul/go-zeebe-example/pkg/logger"
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
+	"github.com/dddpaul/go-zeebe-example/pkg/stats"
 	"io"
 	"net/http"
 	"slices"
@@ -141,6 +142,7 @@ func handleApproveAppJob(client worker.JobClient, job entities.Job) {
 	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
 	defer cancel()
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("approve job activated")
+	stats.IncrementApproved()
 	completeJob(ctx, client, job, map[string]interface{}{})
 }
 
@@ -148,6 +150,7 @@ func handleRejectAppJob(client worker.JobClient, job entities.Job) {
 	ctx, cancel := context.WithTimeout(newContext(job), time.Second*5)
 	defer cancel()
 	logger.Log(ctx, nil).WithField(logger.INPUTS, job.Variables).Debugf("reject job activated")
+	stats.IncrementRejected()
 	completeJob(ctx, client, job, map[string]interface{}{})
 }
 

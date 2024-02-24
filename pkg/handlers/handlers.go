@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"github.com/dddpaul/go-zeebe-example/pkg/stats"
 	"io"
 	"net/http"
 	"time"
@@ -43,7 +44,7 @@ func Sync(zbClient zbc.Client, zbProcessID string, pubSub pubsub.PubSub, w http.
 
 	select {
 	case result := <-ch:
-		respondWithJSON(w, StartProcessResponse{
+		respondWithJSON(ctx, w, StartProcessResponse{
 			ProcessInstanceKey: processInstanceKey,
 			Result:             result.Text,
 		})
@@ -64,7 +65,7 @@ func SyncWithResult(zbClient zbc.Client, zbProcessID string, w http.ResponseWrit
 		return
 	}
 
-	respondWithJSON(w, StartProcessResponse{
+	respondWithJSON(ctx, w, StartProcessResponse{
 		ProcessInstanceKey: processInstanceKey,
 		Result:             variables,
 	})
@@ -91,14 +92,23 @@ func Callback(zbClient zbc.Client, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func Stats(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	respondWithJSON(ctx, w, stats.Get())
+}
+
 func respondWithError(ctx context.Context, w http.ResponseWriter, err error, statusCode int) {
 	logger.Log(ctx, err).Error("error")
 	http.Error(w, err.Error(), statusCode)
 }
 
-func respondWithJSON(w http.ResponseWriter, payload interface{}) {
+func respondWithJSON(ctx context.Context, w http.ResponseWriter, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(payload)
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		logger.Log(ctx, err).Error("error")
+	}
 }
 
 func closeBody(ctx context.Context, body io.ReadCloser) {
