@@ -18,6 +18,7 @@ var (
 	zbProcessID           string
 	zbWorkerMaxJobsActive int
 	zbWorkerConcurrency   int
+	zbStreamEnabled       bool
 	redisAddr             string
 )
 
@@ -29,6 +30,7 @@ func main() {
 	flag.StringVar(&zbProcessID, "zeebe-process-id", LookupEnvOrString("ZEEBE_PROCESS_ID", "diagram_1"), "BPMN process ID")
 	flag.IntVar(&zbWorkerMaxJobsActive, "zeebe-worker-max-jobs-active", LookupEnvOrInt("ZEEBE_WORKER_MAX_JOBS_ACTIVE", 0), "Max amount of active jobs for worker, if 0 then Zeebe client default is used (32)")
 	flag.IntVar(&zbWorkerConcurrency, "zeebe-worker-concurrency", LookupEnvOrInt("ZEEBE_WORKER_CONCURRENCY", 0), "Worker concurrency, if 0 then Zeebe client default is used (4)")
+	flag.BoolVar(&zbStreamEnabled, "zeebe-worker-job-streaming", false, "Enable Zeebe worker job streaming")
 	flag.StringVar(&redisAddr, "redis-addr", LookupEnvOrString("REDIS_ADDR", ""), "Redis cluster/server address")
 
 	log.SetFormatter(&log.TextFormatter{
@@ -49,7 +51,7 @@ func main() {
 
 	s := service.New(
 		service.WithHttpPort(port),
-		service.WithZeebe(zbBrokerAddr, zbProcessID, zbWorkerMaxJobsActive, zbWorkerConcurrency),
+		service.WithZeebe(zbBrokerAddr, zbProcessID, zbWorkerMaxJobsActive, zbWorkerConcurrency, zbStreamEnabled),
 		service.WithRedis(redisAddr))
 
 	s.Start()

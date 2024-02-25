@@ -30,6 +30,9 @@ push: release
 	@docker push ${IMAGE}:$(version)
 
 worker:
-	@go run main.go -zeebe-broker-addr 192.168.0.100:26500 -zeebe-worker-max-jobs-active 64 -zeebe-worker-concurrency 8
+	@go run main.go -zeebe-broker-addr 192.168.0.100:26500 \
+	-zeebe-worker-job-streaming \
+	-zeebe-worker-max-jobs-active 64 \
+	-zeebe-worker-concurrency 8
 
 run: worker

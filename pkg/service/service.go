@@ -23,13 +23,14 @@ type Service struct {
 	zbProcessID           string
 	zbWorkerMaxJobsActive int
 	zbWorkerConcurrency   int
+	zbStreamEnabled       bool
 	pubSub                pubsub.PubSub
 	port                  string
 }
 
 type Option func(s *Service)
 
-func WithZeebe(zbBrokerAddr string, zbProcessID string, zbWorkerMaxJobsActive int, zbWorkerConcurrency int) Option {
+func WithZeebe(zbBrokerAddr string, zbProcessID string, zbWorkerMaxJobsActive int, zbWorkerConcurrency int, zbStreamEnabled bool) Option {
 	return func(s *Service) {
 		s.zbClient = zeebe.NewClient(zbBrokerAddr)
 		s.zbProcessID = zbProcessID
@@ -39,6 +40,7 @@ func WithZeebe(zbBrokerAddr string, zbProcessID string, zbWorkerMaxJobsActive in
 		if zbWorkerMaxJobsActive > 0 {
 			s.zbWorkerConcurrency = zbWorkerConcurrency
 		}
+		s.zbStreamEnabled = zbStreamEnabled
 	}
 }
 
@@ -77,7 +79,7 @@ func (s *Service) Start() {
 	if err := zeebe.DeployProcessDefinition(s.zbClient, s.zbProcessID); err != nil {
 		panic(err)
 	}
-	zeebe.StartJobWorkers(s.zbClient, s.zbWorkerMaxJobsActive, s.zbWorkerConcurrency, s.pubSub)
+	zeebe.StartJobWorkers(s.zbClient, s.zbWorkerMaxJobsActive, s.zbWorkerConcurrency, s.zbStreamEnabled, s.pubSub)
 
 	router := chi.NewRouter()
 	router.Post(SYNC_PATH, func(w http.ResponseWriter, r *http.Request) {

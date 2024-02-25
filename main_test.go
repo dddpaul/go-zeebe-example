@@ -34,7 +34,7 @@ func Test_Main(t *testing.T) {
 	zbProcessID := "diagram_1"
 	s := service.New(
 		service.WithHttpPort(":"+strconv.Itoa(port)),
-		service.WithZeebe(zbBrokerAddr, zbProcessID, 0, 0))
+		service.WithZeebe(zbBrokerAddr, zbProcessID, 0, 0, false))
 	go s.Start()
 
 	if !wait.New(wait.WithDeadline(5 * time.Second)).Do([]string{appHostAndPort}) {

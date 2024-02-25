@@ -28,8 +28,9 @@ const (
 )
 
 var (
-	maxJobsActive int
-	concurrency   int
+	maxJobsActive = 0
+	concurrency   = 0
+	streamEnabled = false
 	pubSub        pubsub.PubSub
 )
 
@@ -38,9 +39,10 @@ type LoopSettings struct {
 	Timeout string `json:"timeout"`
 }
 
-func StartJobWorkers(client zbc.Client, mja int, c int, ps pubsub.PubSub) {
+func StartJobWorkers(client zbc.Client, mja int, c int, se bool, ps pubsub.PubSub) {
 	maxJobsActive = mja
 	concurrency = c
+	streamEnabled = se
 	pubSub = ps
 	go startJobWorker(client, SERVICE_TASK, handleJob)
 	go startJobWorker(client, FINAL_TASK, handleFinalJob)
@@ -53,7 +55,8 @@ func StartJobWorkers(client zbc.Client, mja int, c int, ps pubsub.PubSub) {
 func startJobWorker(client zbc.Client, jobType string, handler func(client worker.JobClient, job entities.Job)) {
 	builder := client.NewJobWorker().
 		JobType(jobType).
-		Handler(handler)
+		Handler(handler).
+		StreamEnabled(streamEnabled)
 	if maxJobsActive > 0 {
 		builder = builder.MaxJobsActive(maxJobsActive)
 	}
