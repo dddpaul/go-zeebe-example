@@ -28,3 +28,8 @@ release: build
 push: release
 	@docker push ${IMAGE}
 	@docker push ${IMAGE}:$(version)
+
+worker:
+	@go run main.go -zeebe-broker-addr 192.168.0.100:26500
+
+run: worker

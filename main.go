@@ -21,7 +21,7 @@ var (
 func main() {
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.BoolVar(&trace, "trace", false, "Enable network tracing")
-	flag.StringVar(&port, "port", ":8080", "Port to listen (prepended by colon), i.e. :8080")
+	flag.StringVar(&port, "port", LookupEnvOrString("SERVER_PORT", ":8080"), "Port to listen (prepended by colon), i.e. :8080")
 	flag.StringVar(&zbBrokerAddr, "zeebe-broker-addr", LookupEnvOrString("ZEEBE_BROKER_ADDR", "127.0.0.1:26500"), "Zeebe broker address")
 	flag.StringVar(&zbProcessID, "zeebe-process-id", LookupEnvOrString("ZEEBE_PROCESS_ID", "diagram_1"), "BPMN process ID")
 	flag.StringVar(&redisAddr, "redis-addr", LookupEnvOrString("REDIS_ADDR", ""), "Redis cluster/server address")
