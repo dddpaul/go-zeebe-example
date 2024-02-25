@@ -6,16 +6,19 @@ import (
 	"github.com/dddpaul/go-zeebe-example/pkg/service"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"strconv"
 	"time"
 )
 
 var (
-	verbose      bool
-	trace        bool
-	port         string
-	zbBrokerAddr string
-	zbProcessID  string
-	redisAddr    string
+	verbose               bool
+	trace                 bool
+	port                  string
+	zbBrokerAddr          string
+	zbProcessID           string
+	zbWorkerMaxJobsActive int
+	zbWorkerConcurrency   int
+	redisAddr             string
 )
 
 func main() {
@@ -24,6 +27,8 @@ func main() {
 	flag.StringVar(&port, "port", LookupEnvOrString("SERVER_PORT", ":8080"), "Port to listen (prepended by colon), i.e. :8080")
 	flag.StringVar(&zbBrokerAddr, "zeebe-broker-addr", LookupEnvOrString("ZEEBE_BROKER_ADDR", "127.0.0.1:26500"), "Zeebe broker address")
 	flag.StringVar(&zbProcessID, "zeebe-process-id", LookupEnvOrString("ZEEBE_PROCESS_ID", "diagram_1"), "BPMN process ID")
+	flag.IntVar(&zbWorkerMaxJobsActive, "zeebe-worker-max-jobs-active", LookupEnvOrInt("ZEEBE_WORKER_MAX_JOBS_ACTIVE", 0), "Max amount of active jobs for worker, if 0 then Zeebe client default is used (32)")
+	flag.IntVar(&zbWorkerConcurrency, "zeebe-worker-concurrency", LookupEnvOrInt("ZEEBE_WORKER_CONCURRENCY", 0), "Worker concurrency, if 0 then Zeebe client default is used (4)")
 	flag.StringVar(&redisAddr, "redis-addr", LookupEnvOrString("REDIS_ADDR", ""), "Redis cluster/server address")
 
 	log.SetFormatter(&log.TextFormatter{
@@ -44,7 +49,7 @@ func main() {
 
 	s := service.New(
 		service.WithHttpPort(port),
-		service.WithZeebe(zbBrokerAddr, zbProcessID),
+		service.WithZeebe(zbBrokerAddr, zbProcessID, zbWorkerMaxJobsActive, zbWorkerConcurrency),
 		service.WithRedis(redisAddr))
 
 	s.Start()
@@ -57,11 +62,18 @@ func LookupEnvOrString(key string, defaultVal string) string {
 	return defaultVal
 }
 
+func LookupEnvOrInt(key string, defaultVal int) int {
+	val, err := strconv.Atoi(LookupEnvOrString(key, strconv.Itoa(defaultVal)))
+	if err != nil {
+		panic(err)
+	}
+	return val
+}
+
 func getConfig(fs *flag.FlagSet) []string {
 	cfg := make([]string, 0, 10)
 	fs.VisitAll(func(f *flag.Flag) {
 		cfg = append(cfg, fmt.Sprintf("%s:%q", f.Name, f.Value.String()))
 	})
-
 	return cfg
 }

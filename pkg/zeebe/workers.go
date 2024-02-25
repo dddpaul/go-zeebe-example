@@ -27,14 +27,20 @@ const (
 	REJECT_TASK        = "reject-app"
 )
 
-var pubSub pubsub.PubSub
+var (
+	maxJobsActive int
+	concurrency   int
+	pubSub        pubsub.PubSub
+)
 
 type LoopSettings struct {
 	Retries int    `json:"retries"`
 	Timeout string `json:"timeout"`
 }
 
-func StartJobWorkers(client zbc.Client, ps pubsub.PubSub) {
+func StartJobWorkers(client zbc.Client, mja int, c int, ps pubsub.PubSub) {
+	maxJobsActive = mja
+	concurrency = c
 	pubSub = ps
 	go startJobWorker(client, SERVICE_TASK, handleJob)
 	go startJobWorker(client, FINAL_TASK, handleFinalJob)
@@ -45,10 +51,16 @@ func StartJobWorkers(client zbc.Client, ps pubsub.PubSub) {
 }
 
 func startJobWorker(client zbc.Client, jobType string, handler func(client worker.JobClient, job entities.Job)) {
-	jobWorker := client.NewJobWorker().
+	builder := client.NewJobWorker().
 		JobType(jobType).
-		Handler(handler).
-		Open()
+		Handler(handler)
+	if maxJobsActive > 0 {
+		builder = builder.MaxJobsActive(maxJobsActive)
+	}
+	if concurrency > 0 {
+		builder = builder.Concurrency(concurrency)
+	}
+	jobWorker := builder.Open()
 	defer jobWorker.Close()
 	jobWorker.AwaitClose()
 }
