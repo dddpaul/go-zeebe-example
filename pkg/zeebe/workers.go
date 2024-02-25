@@ -199,9 +199,11 @@ func throwErrorJob(ctx context.Context, client worker.JobClient, job entities.Jo
 
 func newContext(job entities.Job) context.Context {
 	ctx := context.Background()
-	if s, err := extractStringVar(job, APP_ID); err != nil {
-		ctx = context.WithValue(ctx, logger.APP_ID, s)
+	s, err := extractStringVar(job, APP_ID)
+	if err != nil {
+		logger.Log(ctx, err).Errorf("error")
 	}
+	ctx = context.WithValue(ctx, logger.APP_ID, s)
 	return context.WithValue(ctx, logger.JOB_TYPE, job.Type)
 }
 
