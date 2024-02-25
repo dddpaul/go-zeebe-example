@@ -201,7 +201,7 @@ func newContext(job entities.Job) context.Context {
 	ctx := context.Background()
 	s, err := extractStringVar(job, APP_ID)
 	if err != nil {
-		logger.Log(ctx, err).Errorf("error")
+		logger.Log(ctx, err).Debugf("")
 	}
 	ctx = context.WithValue(ctx, logger.APP_ID, s)
 	return context.WithValue(ctx, logger.JOB_TYPE, job.Type)
