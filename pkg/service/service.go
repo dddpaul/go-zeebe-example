@@ -7,6 +7,7 @@ import (
 	"github.com/dddpaul/go-zeebe-example/pkg/pubsub"
 	"github.com/dddpaul/go-zeebe-example/pkg/zeebe"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 	"strings"
 )
@@ -82,6 +83,7 @@ func (s *Service) Start() {
 	zeebe.StartJobWorkers(s.zbClient, s.zbWorkerMaxJobsActive, s.zbWorkerConcurrency, s.zbStreamEnabled, s.pubSub)
 
 	router := chi.NewRouter()
+	router.Mount("/debug", middleware.Profiler())
 	router.Post(SYNC_PATH, func(w http.ResponseWriter, r *http.Request) {
 		handlers.Sync(s.zbClient, s.zbProcessID, s.pubSub, w, r)
 	})
