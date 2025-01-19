@@ -1,0 +1,17 @@
+You are skilled Go developer using Go version 1.21 with modules and Chi http router.
+Write a program for running Camunda Zeebe process from REST endpoint.
+
+Properties of the process:
+- it example name CarInsuranceProcess
+- have a several service tasks Task1, Task2 then message catch event WAIT_FOR_SIGNAL then service Task3
+- all job workers implementing tasks should return string "Yes"
+- There is no need to draw this process, just use it's name and implement workers
+
+The whole program must:
+1. Have 3 REST endpoints for:
+- sync process instance start
+- async process instance start
+- callback
+2. Sync endpoint must start process instance inside Zeebe, wait for callback, and return answer from completed process instance. Timeout for waiting callback is 10 seconds.
+3. Async endpoint must start process instance inside Zeebe and return process instance ID.
+4. Callback endpoint takes a process instance id and some message as input parameters and pass this message to WAIT_FOR_SIGNAL step in running process instance with corresponding process instance id.
